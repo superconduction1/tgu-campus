@@ -7,9 +7,9 @@ plugins {
 android {
     namespace = "edu.tgu.tgu_campus"
     compileSdk = flutter.compileSdkVersion
-    // 本项目没有原生代码，不需要 NDK；AGP 9 会因为 flutter.ndkVersion 强制要求安装 NDK（约 700MB），
-    // 这里不设置，让它跳过。等真的要用原生库时再打开并安装对应版本。
-    // ndkVersion = flutter.ndkVersion
+    // 用本机 .tools/android-sdk 里装好的 NDK（r28c）。不写这一行，AGP 会跳过
+    // stripDebugSymbols，所有 .so 的调试符号都留在包里，APK 会涨到 1.4GB。
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

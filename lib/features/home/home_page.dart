@@ -201,37 +201,42 @@ class _HomePageState extends State<HomePage> {
         children: <Widget>[
           TodayCard(api: widget.api),
           const SectionTitle('校园服务'),
-          GridView.count(
-            crossAxisCount: 3,
+          GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.02,
-            children: _modules.map((_ModuleEntry module) {
+            itemCount: _modules.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              // 固定高度：宫格只能是矮卡片，不然正方形会把标题顶到屏幕外。
+              mainAxisExtent: 104,
+            ),
+            itemBuilder: (BuildContext context, int index) {
+              final _ModuleEntry module = _modules[index];
               final Color accent = TguColors.accentFor(module.title);
               return Container(
                 decoration: BoxDecoration(
                   color: TguColors.card,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: TguColors.line),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: () => _openModule(module),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+                    padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Container(
-                          width: 34,
-                          height: 34,
+                          width: 30,
+                          height: 30,
                           decoration: BoxDecoration(
                             color: accent.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(11),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(module.icon, size: 19, color: accent),
+                          child: Icon(module.icon, size: 17, color: accent),
                         ),
                         const Spacer(),
                         Text(
@@ -239,7 +244,8 @@ class _HomePageState extends State<HomePage> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 13.5,
+                            height: 1.15,
                             fontWeight: FontWeight.w600,
                             color: TguColors.ink,
                           ),
@@ -248,7 +254,7 @@ class _HomePageState extends State<HomePage> {
                         Text(
                           module.source,
                           style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 10.5,
                             color: TguColors.sub,
                           ),
                         ),
@@ -257,7 +263,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               );
-            }).toList(),
+            },
           ),
           const SectionTitle('工具'),
           AppCard(
