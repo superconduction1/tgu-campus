@@ -112,4 +112,40 @@ class TimetableGrid {
     }
     return bad;
   }
+
+  /// 「今天第 [weekday] 天、此刻 [nowMinutes]（0–1439）」时这节课是否正在上。
+  ///
+  /// 只用来做高亮，不参与排课；节次时间取自教务的 `jcsjbs`
+  /// （形如 `0820` / `0905`），解析不出来就当不是。
+  static bool isRunningNow(
+    GridEntry entry,
+    List<SectionTime> sections, {
+    required int? weekday,
+    required int nowMinutes,
+  }) {
+    if (weekday == null || entry.day != weekday) return false;
+    final SectionTime? first = _sectionAt(sections, entry.startSession);
+    final SectionTime? last =
+        _sectionAt(sections, entry.startSession + entry.sessionCount - 1);
+    if (first == null || last == null) return false;
+    final int from = _minutesOf(first.start);
+    final int to = _minutesOf(last.end);
+    if (from < 0 || to < 0) return false;
+    return nowMinutes >= from && nowMinutes < to;
+  }
+
+  static SectionTime? _sectionAt(List<SectionTime> sections, int index) {
+    for (final SectionTime s in sections) {
+      if (s.index == index) return s;
+    }
+    return null;
+  }
+
+  static int _minutesOf(String hhmm) {
+    if (hhmm.length < 4) return -1;
+    final int? hour = int.tryParse(hhmm.substring(0, 2));
+    final int? minute = int.tryParse(hhmm.substring(hhmm.length - 2));
+    if (hour == null || minute == null) return -1;
+    return hour * 60 + minute;
+  }
 }

@@ -1123,6 +1123,75 @@ Future<void> main() async {
     check('真实课程页：workEnc 32 位', ctx?.workEnc.length, 32);
   }
 
+  // ---- [26] 「现在这节课」高亮 ----
+  stdout.writeln('\n[26] 课表：此刻正在上');
+  final Timetable realTt = UrpParser.parseTimetableJson(jsonDecode(
+    File('../../dump/api_26_student_courseSelect_thisSemesterCurriculum'
+            '_ajaxStudentSchedule_callback.json')
+        .readAsStringSync(),
+  ));
+  final TimetableGrid week5 = TimetableGrid.build(realTt, week: 5);
+  final GridEntry firstEntry = week5.entries.first;
+  final int startMin = _hhmm(realTt.sections
+      .firstWhere((SectionTime s) => s.index == firstEntry.startSession)
+      .start);
+  check(
+    '开课前 1 分钟不算',
+    TimetableGrid.isRunningNow(
+      firstEntry,
+      realTt.sections,
+      weekday: firstEntry.day,
+      nowMinutes: startMin - 1,
+    ),
+    false,
+  );
+  check(
+    '开课那一分钟算',
+    TimetableGrid.isRunningNow(
+      firstEntry,
+      realTt.sections,
+      weekday: firstEntry.day,
+      nowMinutes: startMin,
+    ),
+    true,
+  );
+  check(
+    '别的星期几不算',
+    TimetableGrid.isRunningNow(
+      firstEntry,
+      realTt.sections,
+      weekday: firstEntry.day == 7 ? 1 : firstEntry.day + 1,
+      nowMinutes: startMin,
+    ),
+    false,
+  );
+  check(
+    '不知道今天周几就不高亮',
+    TimetableGrid.isRunningNow(
+      firstEntry,
+      realTt.sections,
+      weekday: null,
+      nowMinutes: startMin,
+    ),
+    false,
+  );
+  check(
+    '节次表缺失不算',
+    TimetableGrid.isRunningNow(
+      firstEntry,
+      const <SectionTime>[],
+      weekday: firstEntry.day,
+      nowMinutes: 600,
+    ),
+    false,
+  );
+
   stdout.writeln('\n结果：$_passed 通过，$_failed 失败\n');
   if (_failed > 0) exit(1);
+}
+
+int _hhmm(String value) {
+  if (value.length < 4) return -1;
+  return int.parse(value.substring(0, 2)) * 60 +
+      int.parse(value.substring(value.length - 2));
 }

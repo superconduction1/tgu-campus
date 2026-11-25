@@ -46,6 +46,9 @@ class _TimetablePageState extends State<TimetablePage> {
   /// 用户自己翻过周次没有。翻过了就别再被服务器周次覆盖。
   bool _weekTouched = false;
 
+  /// 教务说的「今天周几」（1=周一）。用来把正在上的那节课高亮出来。
+  int? _todayWeekday;
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +63,8 @@ class _TimetablePageState extends State<TimetablePage> {
       final int week = raw < 1 ? 1 : (raw > 30 ? 30 : raw);
       setState(() {
         _currentWeek = week;
+        final int wd = info.weekday;
+        _todayWeekday = (wd >= 1 && wd <= 7) ? wd : null;
         if (!_weekTouched) _week = week;
       });
     } catch (_) {
@@ -161,7 +166,11 @@ class _TimetablePageState extends State<TimetablePage> {
               ),
               _SummaryBar(timetable: timetable, grid: grid),
               Expanded(
-                child: _Grid(grid: grid, sections: timetable.sections),
+                child: _Grid(
+                  grid: grid,
+                  sections: timetable.sections,
+                  highlightDay: _week == _currentWeek ? _todayWeekday : null,
+                ),
               ),
             ],
           );
@@ -319,10 +328,17 @@ class _SummaryBar extends StatelessWidget {
 }
 
 class _Grid extends StatelessWidget {
-  const _Grid({required this.grid, required this.sections});
+  const _Grid({
+    required this.grid,
+    required this.sections,
+    this.highlightDay,
+  });
 
   final TimetableGrid grid;
   final List<SectionTime> sections;
+
+  /// 只有看「本周」时才传，传了才把正在上的课标出来。
+  final int? highlightDay;
 
   static const double _headerHeight = 34;
   static const double _rowHeight = 58;
@@ -335,11 +351,21 @@ class _Grid extends StatelessWidget {
     return '';
   }
 
+  /// 这节课是不是「此刻正在上」。
+  bool _isNow(GridEntry entry, int nowMinutes) => TimetableGrid.isRunningNow(
+        entry,
+        sections,
+        weekday: highlightDay,
+        nowMinutes: nowMinutes,
+      );
+
   Color _colorFor(String code) => TguColors.accentFor(code);
 
   @override
   Widget build(BuildContext context) {
     final int rows = grid.maxSession;
+    final DateTime now = DateTime.now();
+    final int nowMinutes = now.hour * 60 + now.minute;
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -405,7 +431,11 @@ class _Grid extends StatelessWidget {
                         1,
                     width: dayWidth - 2,
                     height: entry.sessionCount * _rowHeight - 3,
-                    child: _CourseBlock(entry: entry, color: _colorFor(entry.course.code)),
+                    child: _CourseBlock(
+                      entry: entry,
+                      color: _colorFor(entry.course.code),
+                      isNow: _isNow(entry, nowMinutes),
+                    ),
                   ),
               ],
             ),
@@ -417,15 +447,22 @@ class _Grid extends StatelessWidget {
 }
 
 class _CourseBlock extends StatelessWidget {
-  const _CourseBlock({required this.entry, required this.color});
+  const _CourseBlock({
+    required this.entry,
+    required this.color,
+    this.isNow = false,
+  });
 
   final GridEntry entry;
   final Color color;
 
+  /// 此刻正在上：描一圈深色边 + 角标，扫一眼就知道现在该去哪。
+  final bool isNow;
+
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: color.withValues(alpha: 0.12),
+      color: color.withValues(alpha: isNow ? 0.20 : 0.12),
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
@@ -434,21 +471,55 @@ class _CourseBlock extends StatelessWidget {
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
-            border: Border(left: BorderSide(color: color, width: 3)),
+            border: isNow
+                ? Border(
+                    left: BorderSide(color: color, width: 3),
+                    top: BorderSide(color: color, width: 1.4),
+                    right: BorderSide(color: color, width: 1.4),
+                    bottom: BorderSide(color: color, width: 1.4),
+                  )
+                : Border(left: BorderSide(color: color, width: 3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                entry.course.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  height: 1.2,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      entry.course.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.2,
+                        fontWeight: FontWeight.w600,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                  if (isNow)
+                    Container(
+                      margin: const EdgeInsets.only(left: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 3,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: const Text(
+                        '现在',
+                        style: TextStyle(
+                          fontSize: 8,
+                          height: 1.1,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const Spacer(),
               Text(
