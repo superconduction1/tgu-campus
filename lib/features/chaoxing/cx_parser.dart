@@ -121,6 +121,20 @@ CourseContext? parseCourseContext(String html) {
   return ctx.isUsable ? ctx : null;
 }
 
+/// 课程列表里的链接带 `ismooc2=1`，进去是「新版课程界面」，
+/// 那个页面没有 `courseid/clazzid/enc` 这些隐藏域；去掉它才是老界面。
+///
+/// 实测：带 `ismooc2=1` 的页面解析不出隐藏域，去掉后立刻能拿到。
+Uri normalizeCoursePageUri(Uri page) {
+  if (!page.queryParameters.containsKey('ismooc2')) {
+    return page;
+  }
+  final Map<String, String> q = <String, String>{
+    ...page.queryParameters,
+  }..remove('ismooc2');
+  return page.replace(queryParameters: q);
+}
+
 /// 拼作业列表 URL。
 ///
 /// 逐字对照 `course-stu.js` 的 `module == 'zy'` 分支：

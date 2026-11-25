@@ -1,4 +1,4 @@
-﻿// 纯 Dart 校验：不依赖 Flutter，只验证 core 层的算法与数据结构。
+// 纯 Dart 校验：不依赖 Flutter，只验证 core 层的算法与数据结构。
 //
 // 用法（在 tools/verify 目录下）：
 //   dart pub get
@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:gbk_codec/gbk_codec.dart';
 
 import '../../../lib/core/chaoxing_crypto.dart';
+import '../../../lib/core/config.dart';
 import '../../../lib/core/disk_cache.dart';
 import '../../../lib/core/html_table.dart';
 import '../../../lib/core/http.dart';
@@ -1041,6 +1042,47 @@ Future<void> main() async {
   check('考试原文：一条考试解析出来', oneExam.length, 1);
   check('考试原文：时间', oneExam.first.examTime, '2026-01-05 09:00');
   check('考试原文：地点', oneExam.first.location, '博雅楼 201');
+
+  stdout.writeln('\n[24] 课程列表走 courslistdata，不是页面壳');
+
+  // 课程列表给的链接带 ismooc2=1，那页没有隐藏域；去掉才拿得到 enc/t。
+  final Uri withMooc2 = Uri.parse(
+    'https://mooc1.chaoxing.com/mooc-ans/visit/stucoursemiddle'
+    '?courseid=267530050&clazzid=155823420&vc=1&cpi=562623583&ismooc2=1',
+  );
+  final Uri normalized = normalizeCoursePageUri(withMooc2);
+  check('去掉 ismooc2', normalized.queryParameters.containsKey('ismooc2'), false);
+  check('courseid 还在', normalized.queryParameters['courseid'], '267530050');
+  check('clazzid 还在', normalized.queryParameters['clazzid'], '155823420');
+  check('cpi 还在', normalized.queryParameters['cpi'], '562623583');
+  check('vc 还在', normalized.queryParameters['vc'], '1');
+  final Uri alreadyClean = Uri.parse(
+    'https://mooc1.chaoxing.com/mooc-ans/visit/stucoursemiddle?courseid=1&vc=1',
+  );
+  check(
+    '没有 ismooc2 时原样返回',
+    normalizeCoursePageUri(alreadyClean).toString(),
+    alreadyClean.toString(),
+  );
+  check(
+    '接口地址是 visit/courselistdata',
+    ChaoxingConfig.courseListData.path,
+    '/mooc-ans/visit/courselistdata',
+  );
+
+  // 真实课程页（那两门已结束课程）的卡片标记。
+  final File endedCourseDump = File(
+    '../../dump-cx/09_mooc1.chaoxing.com_mooc-ans_visit_stuendcourselist.html',
+  );
+  if (endedCourseDump.existsSync()) {
+    final List<CxCourse> parsed = parseCourseList(
+      decodeHtmlBytes(endedCourseDump.readAsBytesSync()),
+    );
+    check('已结束课程：2 门', parsed.length, 2);
+    check('已结束课程：第一门', parsed.first.name, '有机化学实验');
+    check('已结束课程：courseId', parsed.first.courseId, '267530050');
+    check('已结束课程：链接非空', parsed.first.pageUrl.isNotEmpty, true);
+  }
 
   stdout.writeln('\n结果：$_passed 通过，$_failed 失败\n');
   if (_failed > 0) exit(1);

@@ -122,13 +122,34 @@ class ChaoxingApi {
 
   // --- 作业 ---
 
-  /// 「我的课程」列表。会话掉了会跳到登录页，这里当失败处理。
+  /// 「我的课程」列表。
+  ///
+  /// 页面 `visit/interaction` 本身是空壳，卡片由 `course.js` 的
+  /// `getCourseList()` POST `visit/courselistdata` 拿回来再塞进 `#courselistArea`。
+  /// 所以这里直接打那个接口——不然只能拿到「已结束课程」那两门。
   Future<List<CxCourse>> fetchCourses() async {
-    final HttpResult r = await client.get(ChaoxingConfig.courseList);
+    final HttpResult r = await client.postForm(
+      ChaoxingConfig.courseListData,
+      <String, String>{
+        'courseType': '1', // 进行中
+        'courseFolderId': '0',
+        'baseEducation': '0',
+        'superstarClass': '',
+        'courseFolderSize': '0',
+      },
+    );
     if (r.statusCode != 200) {
       throw CxDeniedException('课程列表返回 ${r.statusCode}');
     }
-    return parseCourseList(r.html);
+    final List<CxCourse> courses = parseCourseList(r.html);
+    if (courses.isNotEmpty) return courses;
+
+    // 兜底：老接口（只有已结束课程时才有内容）
+    final HttpResult fallback = await client.get(ChaoxingConfig.courseList);
+    if (fallback.statusCode != 200) {
+      throw CxDeniedException('课程列表返回 ${fallback.statusCode}');
+    }
+    return parseCourseList(fallback.html);
   }
 
   /// 单门课的作业：课程页取隐藏域 → 拼作业 URL → 解析。
@@ -137,18 +158,36 @@ class ChaoxingApi {
   Future<HomeworkList> fetchCourseHomework(CxCourse course) async {
     final Uri pageUri = course.pageUrl.isNotEmpty
         ? Uri.parse(course.pageUrl)
-        : Uri.parse('https://mooc1.chaoxing.com/mooc-ans/visit/stucoursemiddle'
-            '?courseid=${course.courseId}&clazzid=${course.clazzId}'
-            '&cpi=${course.cpi}');
-    final HttpResult page = await client.get(pageUri);
-    final CourseContext? ctx = parseCourseContext(page.html);
+        : _canonicalCourseUri(course);
+
+    // 课程列表给的是「新版界面」链接（带 ismooc2=1），那页没有隐藏域。
+    CourseContext? ctx;
+    for (final Uri candidate in <Uri>[
+      normalizeCoursePageUri(pageUri),
+      _canonicalCourseUri(course),
+    ]) {
+      final HttpResult page = await client.get(candidate);
+      ctx = parseCourseContext(page.html);
+      if (ctx != null) break;
+    }
     if (ctx == null) {
-      throw CxDeniedException('${course.name}：课程页里没有隐藏域，会话可能已失效');
+      throw CxDeniedException(
+        '${course.name}：课程页里没有隐藏域，登录态可能已失效，'
+        '去「设置 → 学习通」重新登录再试',
+      );
     }
     final HttpResult list =
         await client.get(buildWorkListUrl(ctx, ChaoxingConfig.workList));
     return parseWorkList(list.html, courseName: course.name);
   }
+
+  Uri _canonicalCourseUri(CxCourse course) =>
+      Uri.https('mooc1.chaoxing.com', '/mooc-ans/visit/stucoursemiddle', <String, String>{
+        'courseid': course.courseId,
+        'clazzid': course.clazzId,
+        'cpi': course.cpi,
+        'vc': '1',
+      });
 
   /// 全部课程的作业。
   ///

@@ -100,6 +100,17 @@ class ChaoxingConfig {
   static Uri get courseList =>
       Uri.parse('https://mooc1.chaoxing.com/mooc-ans/visit/stuendcourselist');
 
+  /// 真正在用的课程列表接口（POST 表单，返回卡片 HTML 片段）。
+  ///
+  /// 来自 `mooc-ans/mooc2/js/course/course.js` 的 `getCourseList()`：
+  /// ```
+  /// url : _HOST_CP2_ + "/visit/courselistdata", type : "post",
+  /// data : { courseType, courseFolderId, baseEducation, superstarClass, courseFolderSize }
+  /// ```
+  /// `courseType=1` 是「进行中」那个 tab（页面隐藏域写的是 0，但默认选中的 tab 是 1）。
+  static Uri get courseListData =>
+      Uri.parse('https://mooc1.chaoxing.com/mooc-ans/visit/courselistdata');
+
   /// 作业列表。必须带 `courseId / classId / cpi / ut=s / t / stuenc`，
   /// 少一个就是「无权限的操作！」提示页。
   static Uri get workList =>

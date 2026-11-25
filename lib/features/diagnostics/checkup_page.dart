@@ -122,7 +122,8 @@ class _CheckupPageState extends State<CheckupPage> {
 
     items.add(await _step('座位地址', () async {
       if (seat == null || seat.isEmpty) {
-        throw StateError('还没粘过地址');
+        // 不是故障：座位预约要靠用户自己在学习通里粘一次地址。
+        return '还没设置（首页 → 座位预约，按提示粘一次地址）';
       }
       final String? normalized = normalizeSeatUrl(seat);
       if (normalized == null) {
