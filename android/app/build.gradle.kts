@@ -38,6 +38,15 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // 关掉 release 的 lint（lintVitalAnalyzeRelease）。AGP 自带的 lint 在
+    // webview_flutter_android 的 Kotlin 代码上会崩（`java.util.List.removeLast()`
+    // 是 JDK 21 才有的方法，本机 JDK 17 跑不了），属于 lint 自身的 bug。
+    // 这个工程只自用、不上架，静态检查由 CI 的 flutter analyze + 本地 resolve.dart 兜着。
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 }
 
 kotlin {
