@@ -1,4 +1,4 @@
-﻿# 天工校园 · TGU Campus
+# 天工校园 · TGU Campus
 
 天津工业大学校园聚合 App（单人自用，Android 侧载）。把 URP 教务、学习通作业、
 图书馆座位预约收到一个界面里。
@@ -34,10 +34,25 @@
 
 **想装上手机 → [BUILD.md](BUILD.md)**，两条路：
 
+- **本机构建（推荐）**：双击仓库根目录 `b.cmd`，3-5 分钟出 `app-debug.apk`（68MB）；
+  只要模拟器测试就用 `bx64.cmd`（单 x86_64，约 40MB）；`tools/ship.cmd` 一路编译+安装+启动。
 - **不想装工具链**：推到 GitHub，在 Actions 里点一下「构建 Debug APK」，
-  下 Artifacts 里的 `app-debug.apk` 直接装（工作流已写好）。
-- **本机构建**：`node tools/prepare-android.mjs` 一步生成 `android/`
-  并补上 INTERNET 权限、明文开关、minSdk 23（这三处是装到手机上必踩的坑）。
+  下 Artifacts 里的 `app-debug.apk`。注意产物下载实测只有 0.04–0.06MB/s（20–30 分钟）。
+
+## 界面
+
+视觉规范集中在 `lib/core/design.dart`：白卡片（18 圆角 + 极浅描边）、药丸形分段标签、
+四列大数字统计块、左侧彩色细条的行、浅色小徽章；页面底色比卡片深一档。课程色条由课程名
+哈希决定（`TguColors.accentFor`），同一门课在首页、课表、考试里颜色一致。
+
+| 首页（今日课程 + 校园服务 + 工具） | 课表（周次卡片 + 彩色课程块） |
+|---|---|
+| ![首页](docs/screens/home.png) | ![课表](docs/screens/timetable.png) |
+
+| 成绩（空态） | 作业（学习通登录） |
+|---|---|
+| ![成绩](docs/screens/score-empty.png) | ![作业](docs/screens/homework-login.png) |
+
 
 关键结论：教务是 **清元优软 URP + Spring Security**，密码不是明文也不是普通
 MD5，而是：
