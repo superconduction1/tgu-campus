@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/session.dart';
 import '../chaoxing/seat_store.dart';
+import '../diagnostics/checkup_page.dart';
 import '../login/login_page.dart';
 import '../urp/urp_api.dart';
 
@@ -162,6 +163,19 @@ class _SettingsPageState extends State<SettingsPage> {
                   trailing: TextButton(
                     onPressed: _seatUrl.isEmpty ? null : _forgetSeat,
                     child: const Text('清除'),
+                  ),
+                ),
+                const Divider(height: 32),
+                _SectionHeader('工具'),
+                ListTile(
+                  leading: const Icon(Icons.fact_check_outlined),
+                  title: const Text('运行自检'),
+                  subtitle: const Text('逐个模块试一遍，连不上会写原因'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (BuildContext _) => CheckupPage(api: widget.api),
+                    ),
                   ),
                 ),
                 const Divider(height: 32),

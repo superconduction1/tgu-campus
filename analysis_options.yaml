@@ -1,4 +1,6 @@
-include: package:flutter/analysis_options_user.yaml
+# 不要 include package:flutter/analysis_options_user.yaml：Flutter 3.50 起这个文件
+# 已经不在 SDK 里，`flutter analyze` 会报 include_file_not_found（warning 默认致命），
+# 直接把 CI 的静态检查拉红。规则在下面自己列。
 
 analyzer:
   # tools/ 里是独立的 Dart 包（校准工具 + 验证脚手架），有自己的 pubspec，

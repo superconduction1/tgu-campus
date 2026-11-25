@@ -25,3 +25,4 @@ android/key.properties
 .idea/
 .vscode/
 *.iml
+.keys/
