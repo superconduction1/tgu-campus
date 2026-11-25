@@ -339,7 +339,6 @@ class _Grid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
     final int rows = grid.maxSession;
 
     return LayoutBuilder(
@@ -365,7 +364,7 @@ class _Grid extends StatelessWidget {
                         TimetableGrid.weekdayLabels[day - 1],
                         style: TextStyle(
                           fontSize: 13,
-                          color: scheme.onSurfaceVariant,
+                          color: TguColors.sub,
                         ),
                       ),
                     ),
@@ -377,7 +376,7 @@ class _Grid extends StatelessWidget {
                     top: _headerHeight + (row - 1) * _rowHeight,
                     width: constraints.maxWidth,
                     height: 1,
-                    child: ColoredBox(color: scheme.outlineVariant),
+                    child: const ColoredBox(color: TguColors.line),
                   ),
                   Positioned(
                     left: 0,
@@ -391,7 +390,7 @@ class _Grid extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 9,
                           height: 1.15,
-                          color: scheme.onSurfaceVariant,
+                          color: TguColors.sub,
                         ),
                       ),
                     ),
