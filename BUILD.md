@@ -1,63 +1,66 @@
 # 怎么在自己的手机上跑起来
 
-仓库里只有 `lib/`（Dart 代码）和 `pubspec.yaml`，**没有 `android/` 目录** ——
-生成平台目录必须有 Flutter SDK。两条路，选一条：
+仓库里已经有 `android/` 目录（本机生成并打过补丁），所以**不需要再装 Flutter 才能出包**，
+但改代码后重新编译仍需要工具链。两条路：
 
-- **路线 A：GitHub Actions 打包**（不用装任何东西，推荐给只有手机/不想装 3GB 工具链的人）
-- **路线 B：本机构建**（要装 Flutter + JDK + Android SDK，能热重载调试）
-
-两条路都会跑同一个脚本 `tools/prepare-android.mjs`：它生成 `android/`，并打上三处必改的补丁。
+- **路线 A：本机一条命令出包**（工具链已装好，约 3-5 分钟；推荐）
+- **路线 B：GitHub Actions 打包**（不用动本机，但**产物下载很慢**，不推荐）
 
 ---
 
-# 路线 A：GitHub Actions（推荐）
+# 路线 A：本机一条命令出包（推荐）
 
-本机不用装 Flutter / JDK / Android SDK，全部在 GitHub 的机器上跑完。
+工具链都在 `tgu_campus/.tools/` 下（已装好，不入库）：
 
-## 1. 建一个空仓库
+| 组件 | 位置 | 版本 |
+|---|---|---|
+| Flutter SDK | `.tools/flutter` | 3.50.1 stable（自带 Dart 3.14.0） |
+| JDK | `.tools/jdk/jdk-17.0.13+11` | 17.0.13 |
+| Android SDK | `.tools/android-sdk`（platforms 34/35/36、build-tools 36.0.0、platform-tools） | — |
+| NDK | `.tools/android-sdk/ndk/28.2.13676358` | r28c |
 
-浏览器打开 <https://github.com/new>，**不要**勾「Add a README / .gitignore / license」
-（仓库必须完全空，否则推上去会冲突）。名字随便，比如 `tgu-campus`。
+## 怎么跑
 
-## 2. 把本地仓库推上去
+**双击仓库根目录的 `b.cmd`**（或在 cmd 里执行 `b.cmd`），
+SmartScreen 弹「Windows 已保护你的电脑」时点「更多信息 → 仍要运行」。
 
-仓库已经在本地初始化并提交好了（分支 `main`），远程地址也已经填好：
+它会：设好一整套环境变量（`HOME`/`APPDATA`/`GRADLE_USER_HOME`/`ANDROID_USER_HOME` 全部指到
+`.home`，不污染真实用户目录）→ `flutter pub get` → `flutter build apk --debug`，
+全程日志写到 `.tools/build.log`，结尾出现 `APK_OK` 就是成功。
 
-```
-origin = git@github.com:superconduction1/tgu-campus.git
-```
+产物：`build/app/outputs/flutter-apk/app-debug.apk`。
 
-所以只有两件事要做：
+## 装到 MuMu 模拟器
 
 ```powershell
 cd C:\Users\Q\Documents\deepseek-harness\default-workspace\tgu_campus
-
-git push
+D:\MuMuPlayer\nx_main\adb.exe connect 127.0.0.1:16384
+D:\MuMuPlayer\nx_main\adb.exe uninstall edu.tgu.tgu_campus   # 每次构建签名不同，必须卸载
+D:\MuMuPlayer\nx_main\adb.exe install -r build\app\outputs\flutter-apk\app-debug.apk
 ```
 
-- **为什么是 SSH 而不是 https**：这台机器所在的网络把 `github.com:443` 拦掉了（DNS 解析到 `57.155.223.240`，不是 GitHub 的地址；换成真实 IP 也握手后断流），但 `github.com:22`（SSH）是通的。所以仓库改走 SSH。
-- 密钥在 `tgu_campus/.keys/id_tgu`（已加进 `.gitignore`，不会进仓库），公钥已经加到 GitHub 账号里（Settings → SSH and GPG keys，名字 `tgu-campus`）。
-- 换电脑/换密钥时，设置一次即可（**路径用正斜杠**，`ssh` 走的是 sh，反斜杠会被当转义吃掉）：
-  `git config core.sshCommand "ssh -i C:/路径/id_tgu -o IdentitiesOnly=yes"`
-- 想改回 https（在能直连 GitHub 的网络里）：`git remote set-url origin https://github.com/superconduction1/tgu-campus.git`
+## 本机构建的已知坑（都已在 b.cmd 里处理好）
 
-### push 失败对照表
-
-| 报错 | 真正的原因 | 怎么办 |
+| 现象 | 原因 | 处理 |
 |---|---|---|
-| `repository '...' not found` | 第 1 步的空仓库还没建出来（或仓库名不一样） | 回第 1 步建仓库，再核对 `git remote -v` 里的地址 |
-| `remote origin already exists` | 之前加过一次 remote | 正常，说明地址已存在；直接 `git push` |
-| `Permission denied (publickey)` | 密钥没被 GitHub 认（没加公钥，或 `core.sshCommand` 里的路径不对） | 对照上面两条检查；`ssh -T git@github.com` 应回 `Hi superconduction1!` |
-| `Could not read from remote repository` + `Win32 error 5` | 在受限沙箱里跑 git（没法起 sh） | 在普通 cmd/PowerShell 窗口里跑 |
-| `src refspec main does not match any` | 本地分支名不是 `main` | `git branch -M main` 再来 |
+| `flutter_tool_state` 写入失败 / `failed to list directory at "...\.home "` | `set VAR=value && ...` 把**尾随空格**写进了变量 | 一律用 `set "VAR=value"` |
+| `AccessDeniedException ...\.android\debug.keystore.lock` | 用的是真实用户目录 | `ANDROID_USER_HOME` 指到 `.home\.android` |
+| `CMake '3.22.1' was not found` | `path_provider_android 2.3.x` 走 `package:jni` 原生构建 | `pubspec.yaml` 里 `dependency_overrides: path_provider_android: 2.2.15` |
+| `llvm-strip` 启动失败 / APK 1.4GB | 假 NDK 或没装 NDK，AGP 跳过剥离 | 已装 r28c 真 NDK，**不要再加 `keepDebugSymbols`** |
+| `zip END header not found` | Gradle 发行包被下载器写坏 | 清空 `.home\.gradle\wrapper\dists\gradle-9.5.0-bin\*` 重下 |
+| DSH 沙箱里 `flutter build` 报 `CreateFile failed 5` | 沙箱禁止子进程管道（git/flutter 都要起子进程） | 只能在**用户自己的窗口**里跑（b.cmd） |
 
-> 想改提交里显示的名字/邮箱（现在是占位的 `tgu-campus`）：
-> `git config user.name "你的名字"; git config user.email "你的GitHub邮箱"`
-> 然后 `git commit --amend --reset-author --no-edit`。
+> Gradle 走的是国内镜像：`mirrors.cloud.tencent.com` 的 `gradle-9.5.0-bin.zip`，
+> Maven 走 `maven.aliyun.com`（`android/settings.gradle.kts` 与 `android/build.gradle.kts` 里排在官方源前面）。
 
-## 3. 跑构建
+---
 
-推上去后 Actions **会自动开始跑一次**；没跑或失败了就手动触发：
+# 路线 B：GitHub Actions（不推荐：下载很慢）
+
+**这条路 76MB 的产物实测只有 0.04–0.06 MB/s，要 20–30 分钟**，除非本机工具链坏了，否则别用。
+
+仍然保留它，是因为它同时做了三件事：`dart run bin/verify.dart`（270 项断言）、
+`flutter analyze`、`flutter build apk --debug`。
 
 1. 打开仓库 → **Actions** 标签 → 左边「构建 Debug APK」→ 右边 **Run workflow** → 绿色按钮。
 2. 整个流程 5～10 分钟（第一次要下 Flutter SDK 和 Gradle，会慢一些）。

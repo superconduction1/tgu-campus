@@ -38,14 +38,6 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
-
-    packaging {
-        jniLibs {
-            // 本机没有完整 NDK，AGP 的 stripDebugSymbols 找不到 llvm-strip。
-            // 保留 .so 的调试符号即可跳过剥离步骤（只是包体略大）。
-            keepDebugSymbols.add("**/*.so")
-        }
-    }
 }
 
 kotlin {
