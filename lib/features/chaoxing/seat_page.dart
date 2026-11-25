@@ -5,9 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'cx_login_page.dart';
 import 'cx_webview.dart';
 import 'seat_rules.dart';
 import 'seat_store.dart';
+import '../../core/session.dart';
 
 /// 座位预约。
 ///
@@ -30,6 +32,8 @@ class _SeatPageState extends State<SeatPage> {
   bool _booting = true;
   String? _url;
   String? _loadError;
+  /// 座位页是挂在学习通里的 H5，没登录态就会在页面里撞登录墙。
+  bool _cxLoggedIn = true;
   int _progress = 0;
   Timer? _ticker;
   String _countdown = seatCountdownLabel(DateTime.now());
@@ -72,7 +76,9 @@ class _SeatPageState extends State<SeatPage> {
 
   Future<void> _openWebView(String url) async {
     await _injectCxCookies(url);
+    final StoredCxCredentials? cx = await CxSessionStore().load();
     if (!mounted) return;
+    setState(() => _cxLoggedIn = cx != null);
     final WebViewController controller = WebViewController();
     await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
     await controller.setNavigationDelegate(
@@ -151,6 +157,17 @@ class _SeatPageState extends State<SeatPage> {
     );
   }
 
+  /// 座位页要学习通登录态才打得开。没登录时给个入口，省得用户回「作业」页去找。
+  Future<void> _loginCx() async {
+    final bool? ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => const CxLoginPage()),
+    );
+    if (!mounted) return;
+    if (ok == true && _url != null) {
+      await _openWebView(_url!);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_booting) {
@@ -202,6 +219,13 @@ class _SeatPageState extends State<SeatPage> {
       body: Column(
         children: <Widget>[
           _RuleBanner(countdown: _countdown),
+          if (!_cxLoggedIn)
+            MaterialBanner(
+              content: const Text('还没登录学习通，页面里可能会让你再登一次'),
+              actions: <Widget>[
+                TextButton(onPressed: _loginCx, child: const Text('去登录')),
+              ],
+            ),
           if (_loadError != null)
             MaterialBanner(
               content: Text('页面加载失败：$_loadError'),
