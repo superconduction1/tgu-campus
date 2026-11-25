@@ -4,6 +4,7 @@ import '../../core/design.dart';
 import '../../core/http.dart';
 import '../../core/session.dart';
 import 'cx_api.dart';
+import 'cx_login_page.dart';
 import 'cx_parser.dart';
 import 'homework_detail_page.dart';
 import 'models.dart';
@@ -114,6 +115,22 @@ class _HomeworkPageState extends State<HomeworkPage> {
     }
   }
 
+  /// 网页登录：把官方登录页放进 WebView，登完把 Cookie 收回来。
+  Future<void> _webLogin() async {
+    final bool? ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => const CxLoginPage()),
+    );
+    if (ok != true || !mounted) return;
+
+    final StoredCxCredentials? saved = await _store.load();
+    _api.client.jar.restore(saved?.cookies);
+    setState(() {
+      _loggedIn = true;
+      _loginError = null;
+    });
+    await _refresh();
+  }
+
   Future<void> _refresh() async {
     setState(() {
       _busy = true;
@@ -180,6 +197,7 @@ class _HomeworkPageState extends State<HomeworkPage> {
         busy: _busy,
         error: _loginError,
         onSubmit: _login,
+        onWebLogin: _webLogin,
       );
     }
 
@@ -324,6 +342,7 @@ class _LoginForm extends StatelessWidget {
     required this.busy,
     required this.error,
     required this.onSubmit,
+    required this.onWebLogin,
   });
 
   final TextEditingController phone;
@@ -331,6 +350,7 @@ class _LoginForm extends StatelessWidget {
   final bool busy;
   final String? error;
   final Future<void> Function() onSubmit;
+  final Future<void> Function() onWebLogin;
 
   @override
   Widget build(BuildContext context) {
@@ -384,6 +404,11 @@ class _LoginForm extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Text('登录学习通'),
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: busy ? null : onWebLogin,
+          child: const Text('改用网页登录（支持短信验证码）'),
         ),
       ],
     );

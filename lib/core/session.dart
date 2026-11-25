@@ -137,11 +137,15 @@ class CxSessionStore {
 
   Future<StoredCxCredentials?> load() async {
     final String? phone = await readOrClear(_storage, _kPhone);
-    if (phone == null || phone.isEmpty) return null;
+    final String? cookies = await readOrClear(_storage, _kCookies);
+    // 网页登录只拿得到 Cookie、没有账号密码，这种情况也算已登录。
+    final bool hasPhone = phone != null && phone.isNotEmpty;
+    final bool hasCookies = cookies != null && cookies.isNotEmpty;
+    if (!hasPhone && !hasCookies) return null;
     return StoredCxCredentials(
-      phone: phone,
+      phone: phone ?? '',
       password: await readOrClear(_storage, _kPassword),
-      cookies: await readOrClear(_storage, _kCookies),
+      cookies: cookies,
     );
   }
 
