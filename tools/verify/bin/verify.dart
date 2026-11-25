@@ -999,6 +999,49 @@ Future<void> main() async {
     }
   }
 
+  stdout.writeln('\n[23] 成绩 / 考试的「原文 → 解析」这条缓存通路');
+  check('cachedLabel 格式', cachedLabel(stamp), '11-25 19:40');
+  check(
+    'CachedSnapshot 的标签走同一个函数',
+    source.savedAtLabel,
+    cachedLabel(stamp),
+  );
+
+  // 缓存里存的是「原文」，所以必须能从原文还原出解析结果——
+  // 而且原文有两种形态：JSON 回调正文、整页 HTML。
+  final UrpApi api = UrpApi(SchoolHttpClient());
+  final List<ScoreRecord> fromJsonSource =
+      api.scoresFromSource(jsonEncode(payload));
+  check('原文是 JSON 时走 JSON 解析器', fromJsonSource.length, 2);
+  check('JSON 原文：课程名', fromJsonSource.first.courseName, '高等数学');
+
+  final String htmlScores = File(
+    '../../dump/03_student_integratedQuery_scoreQuery_allPassingScores_index.html',
+  ).existsSync()
+      ? File(
+          '../../dump/03_student_integratedQuery_scoreQuery_allPassingScores_index.html',
+        ).readAsStringSync()
+      : '';
+  if (htmlScores.isNotEmpty) {
+    final List<ScoreRecord> fromHtmlSource = api.scoresFromSource(htmlScores);
+    check('原文是 HTML 时不抛异常', fromHtmlSource is List<ScoreRecord>, true);
+    check('HTML 原文：当前学期没有成绩', fromHtmlSource.length, 0);
+  }
+
+  final List<ExamRecord> noExams = api.examsFromSource(
+    '<html><body><table class="displayTag"><tr><th>考试时间</th></tr></table></body></html>',
+  );
+  check('考试原文：只有表头时返回空列表', noExams.length, 0);
+  final List<ExamRecord> oneExam = api.examsFromSource(
+    '<html><body><table class="displayTag">'
+    '<tr><th>考试时间</th><th>课程名称</th><th>考试地点</th><th>座位号</th></tr>'
+    '<tr><td>2026-01-05 09:00</td><td>高等数学</td><td>博雅楼 201</td><td>27</td></tr>'
+    '</table></body></html>',
+  );
+  check('考试原文：一条考试解析出来', oneExam.length, 1);
+  check('考试原文：时间', oneExam.first.examTime, '2026-01-05 09:00');
+  check('考试原文：地点', oneExam.first.location, '博雅楼 201');
+
   stdout.writeln('\n结果：$_passed 通过，$_failed 失败\n');
   if (_failed > 0) exit(1);
 }

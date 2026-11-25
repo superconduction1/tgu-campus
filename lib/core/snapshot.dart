@@ -14,14 +14,17 @@ class CachedSnapshot {
   final DateTime savedAt;
 
   /// `11-25 19:40`，给界面上的「显示 xx 的数据」用。
-  String get savedAtLabel {
-    final DateTime t = savedAt.toLocal();
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)}';
-  }
+  String get savedAtLabel => cachedLabel(savedAt);
 
   @override
   String toString() => 'CachedSnapshot(${value.length} 字节, $savedAtLabel)';
+}
+
+/// 把时间格式成 `11-25 19:40`，界面上统一用这一种写法。
+String cachedLabel(DateTime at) {
+  final DateTime t = at.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)}';
 }
 
 /// 序列化成一行 JSON：`{"savedAt":<毫秒>,"value":"..."}`。

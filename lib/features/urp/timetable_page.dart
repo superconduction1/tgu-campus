@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -147,7 +147,7 @@ class _TimetablePageState extends State<TimetablePage> {
           return Column(
             children: <Widget>[
               if (loaded.cachedAt != null)
-                _StaleBanner(savedAt: loaded.cachedAt!, onRetry: _reload),
+                UrpStaleBanner(label: cachedLabel(loaded.cachedAt!), onRetry: _reload),
               _WeekBar(
                 week: _week,
                 currentWeek: _currentWeek,
@@ -171,39 +171,6 @@ class _Loaded {
 
   final Timetable timetable;
   final DateTime? cachedAt;
-}
-
-/// 「网络没通，这是 xx 的数据」——必须显眼，别让人以为课表变了。
-class _StaleBanner extends StatelessWidget {
-  const _StaleBanner({required this.savedAt, required this.onRetry});
-
-  final DateTime savedAt;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final String label = CachedSnapshot(value: '', savedAt: savedAt).savedAtLabel;
-    return Material(
-      color: scheme.tertiaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-        child: Row(
-          children: <Widget>[
-            Icon(Icons.cloud_off, size: 18, color: scheme.onTertiaryContainer),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '教务连不上，显示 $label 的数据',
-                style: TextStyle(color: scheme.onTertiaryContainer),
-              ),
-            ),
-            TextButton(onPressed: onRetry, child: const Text('重试')),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _WeekBar extends StatelessWidget {

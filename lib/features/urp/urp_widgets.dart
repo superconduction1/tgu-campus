@@ -145,3 +145,47 @@ class UrpEmptyView extends StatelessWidget {
     );
   }
 }
+
+/// 「这是缓存」的提示条。
+///
+/// 教务连不上的时候不白屏，退回去上次的数据，但必须说清楚：
+/// 这不是刚从服务器拿到的，以及是什么时候的。
+class UrpStaleBanner extends StatelessWidget {
+  const UrpStaleBanner({
+    super.key,
+    required this.label,
+    required this.onRetry,
+  });
+
+  /// 已经格式化好的时间，比如 `11-25 19:40`。
+  final String label;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.tertiaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+        child: Row(
+          children: <Widget>[
+            Icon(Icons.cloud_off, size: 18, color: scheme.onTertiaryContainer),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '教务连不上，显示 $label 的数据',
+                style: TextStyle(color: scheme.onTertiaryContainer, fontSize: 13),
+              ),
+            ),
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('重试'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

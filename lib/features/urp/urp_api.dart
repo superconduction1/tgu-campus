@@ -224,23 +224,41 @@ class UrpApi {
   /// 成绩。默认取「全部及格成绩」，[thisTermOnly] 取本学期。
   ///
   /// 优先走页面里的 JSON 接口；拿不到再退回解析 HTML 表格。
-  Future<List<ScoreRecord>> fetchScores({bool thisTermOnly = false}) async {
+  Future<List<ScoreRecord>> fetchScores({bool thisTermOnly = false}) async =>
+      scoresFromSource(await fetchScoresSource(thisTermOnly: thisTermOnly));
+
+  /// 成绩的「原始来源」：优先 JSON 回调的正文，其次整页 HTML。
+  ///
+  /// 存缓存存的就这份原文——将来解析规则改了，旧缓存也能重新解析，
+  /// 而存解析结果是没法回退的。
+  Future<String> fetchScoresSource({bool thisTermOnly = false}) async {
     final String page = await fetchPage(
       thisTermOnly ? UrpPaths.thisTermScores : UrpPaths.allPassingScores,
     );
     final String? api = extractCallbackUrl(page);
     if (api != null) {
       try {
-        final List<ScoreRecord> scores =
-            UrpParser.parseScoresJson(await fetchJson(api));
-        if (scores.isNotEmpty) return scores;
+        final Object? json = await fetchJson(api);
+        if (UrpParser.parseScoresJson(json).isNotEmpty) {
+          return jsonEncode(json);
+        }
       } on UrpException {
         rethrow;
       } catch (_) {
-        // JSON 走不通就退回表格解析
+        // JSON 走不通就退回整页 HTML
       }
     }
-    return UrpParser.parseScores(page);
+    return page;
+  }
+
+  /// 把 [fetchScoresSource] 的原文解析成成绩：JSON 交给 JSON 解析器，
+  /// HTML 交给表格解析器。
+  List<ScoreRecord> scoresFromSource(String source) {
+    final String trimmed = source.trimLeft();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      return UrpParser.parseScoresJson(jsonDecode(source));
+    }
+    return UrpParser.parseScores(source);
   }
 
   /// 不及格成绩。
@@ -250,10 +268,15 @@ class UrpApi {
   }
 
   /// 考试安排。
-  Future<List<ExamRecord>> fetchExams() async {
-    final String html = await fetchPage(UrpPaths.examPlan);
-    return UrpParser.parseExams(html);
-  }
+  Future<List<ExamRecord>> fetchExams() async =>
+      examsFromSource(await fetchExamsSource());
+
+  /// 考试页的整页 HTML（考试是服务端渲染的表格，没有 JSON 接口）。
+  Future<String> fetchExamsSource() => fetchPage(UrpPaths.examPlan);
+
+  /// 把考试页 HTML 解析成考试列表。
+  List<ExamRecord> examsFromSource(String source) =>
+      UrpParser.parseExams(source);
 
   /// 本学期课表原始 HTML。课表结构复杂，先留原始页面，
   /// 解析器等 dump 确认结构后再写。

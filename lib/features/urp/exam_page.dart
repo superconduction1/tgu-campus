@@ -1,25 +1,65 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+
+import '../../core/app_cache.dart';
+import '../../core/disk_cache.dart';
+import '../../core/snapshot.dart';
 import 'models.dart';
 import 'urp_api.dart';
 import 'urp_widgets.dart';
 
 /// 考试安排页。
 class ExamPage extends StatefulWidget {
-  const ExamPage({super.key, required this.api});
+  const ExamPage({super.key, required this.api, this.cache});
 
   final UrpApi api;
+
+  /// 离线缓存放哪儿；测试里可以塞一个临时目录。
+  final DiskCache? cache;
 
   @override
   State<ExamPage> createState() => _ExamPageState();
 }
 
+class _ExamData {
+  const _ExamData(this.exams, {this.cachedAt});
+
+  final List<ExamRecord> exams;
+  final DateTime? cachedAt;
+}
+
 class _ExamPageState extends State<ExamPage> {
-  late Future<List<ExamRecord>> _future = widget.api.fetchExams();
+  late final DiskCache _cache = widget.cache ?? appCache();
+  late Future<_ExamData> _future = _load();
+
+  /// 先打网络，失败退回上次存下来的整页 HTML 重新解析。
+  Future<_ExamData> _load() async {
+    try {
+      final String source = await widget.api.fetchExamsSource();
+      final List<ExamRecord> exams = widget.api.examsFromSource(source);
+      unawaited(_cache.save(CacheKeys.exams, source));
+      return _ExamData(exams);
+    } catch (_) {
+      final CachedSnapshot? saved = await _cache.load(CacheKeys.exams);
+      if (saved != null) {
+        try {
+          final List<ExamRecord> stale =
+              widget.api.examsFromSource(saved.value);
+          if (stale.isNotEmpty) {
+            return _ExamData(stale, cachedAt: saved.savedAt);
+          }
+        } catch (_) {
+          // 缓存坏了就当没有
+        }
+      }
+      rethrow;
+    }
+  }
 
   void _reload() {
     setState(() {
-      _future = widget.api.fetchExams();
+      _future = _load();
     });
   }
 
@@ -36,11 +76,11 @@ class _ExamPageState extends State<ExamPage> {
           ),
         ],
       ),
-      body: FutureBuilder<List<ExamRecord>>(
+      body: FutureBuilder<_ExamData>(
         future: _future,
         builder: (
           BuildContext context,
-          AsyncSnapshot<List<ExamRecord>> snapshot,
+          AsyncSnapshot<_ExamData> snapshot,
         ) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
@@ -53,7 +93,9 @@ class _ExamPageState extends State<ExamPage> {
       );
           }
 
-          final List<ExamRecord> exams = snapshot.data ?? const <ExamRecord>[];
+          final _ExamData data =
+              snapshot.data ?? const _ExamData(<ExamRecord>[]);
+          final List<ExamRecord> exams = data.exams;
           if (exams.isEmpty) {
             return const UrpEmptyView(
               icon: Icons.event_available_outlined,
@@ -62,13 +104,24 @@ class _ExamPageState extends State<ExamPage> {
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-            itemCount: exams.length,
-            separatorBuilder: (BuildContext context, int index) =>
-                const SizedBox(height: 8),
-            itemBuilder: (BuildContext context, int index) =>
-                _ExamCard(record: exams[index]),
+          return Column(
+            children: <Widget>[
+              if (data.cachedAt != null)
+                UrpStaleBanner(
+                  label: cachedLabel(data.cachedAt!),
+                  onRetry: _reload,
+                ),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+                  itemCount: exams.length,
+                  separatorBuilder: (BuildContext context, int index) =>
+                      const SizedBox(height: 8),
+                  itemBuilder: (BuildContext context, int index) =>
+                      _ExamCard(record: exams[index]),
+                ),
+              ),
+            ],
           );
         },
       ),

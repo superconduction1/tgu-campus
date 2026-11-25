@@ -1,5 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+
+import '../../core/app_cache.dart';
+import '../../core/disk_cache.dart';
+import '../../core/snapshot.dart';
 import 'models.dart';
 import 'score_stats.dart';
 import 'urp_api.dart';
@@ -7,20 +12,59 @@ import 'urp_widgets.dart';
 
 /// 成绩页：按学期分组，顶部给汇总。
 class ScorePage extends StatefulWidget {
-  const ScorePage({super.key, required this.api});
+  const ScorePage({super.key, required this.api, this.cache});
 
   final UrpApi api;
+
+  /// 离线缓存放哪儿；测试里可以塞一个临时目录。
+  final DiskCache? cache;
 
   @override
   State<ScorePage> createState() => _ScorePageState();
 }
 
+/// 一次加载的结果：数据 + 是不是缓存（缓存带时间）。
+class _ScoreData {
+  const _ScoreData(this.records, {this.cachedAt});
+
+  final List<ScoreRecord> records;
+  final DateTime? cachedAt;
+}
+
 class _ScorePageState extends State<ScorePage> {
-  late Future<List<ScoreRecord>> _future = widget.api.fetchScores();
+  late final DiskCache _cache = widget.cache ?? appCache();
+  late Future<_ScoreData> _future = _load();
+
+  /// 先打网络；失败就退回上次存下来的原文重新解析。
+  ///
+  /// 退回时带上缓存时间，页面上要明确写「这是几点的数据」，
+  /// 不能让人以为是刚查到的。
+  Future<_ScoreData> _load() async {
+    try {
+      final String source = await widget.api.fetchScoresSource();
+      final List<ScoreRecord> records = widget.api.scoresFromSource(source);
+      unawaited(_cache.save(CacheKeys.scores, source));
+      return _ScoreData(records);
+    } catch (_) {
+      final CachedSnapshot? saved = await _cache.load(CacheKeys.scores);
+      if (saved != null) {
+        try {
+          final List<ScoreRecord> stale =
+              widget.api.scoresFromSource(saved.value);
+          if (stale.isNotEmpty) {
+            return _ScoreData(stale, cachedAt: saved.savedAt);
+          }
+        } catch (_) {
+          // 缓存解析不了就当没有
+        }
+      }
+      rethrow;
+    }
+  }
 
   void _reload() {
     setState(() {
-      _future = widget.api.fetchScores();
+      _future = _load();
     });
   }
 
@@ -37,11 +81,11 @@ class _ScorePageState extends State<ScorePage> {
           ),
         ],
       ),
-      body: FutureBuilder<List<ScoreRecord>>(
+      body: FutureBuilder<_ScoreData>(
         future: _future,
         builder: (
           BuildContext context,
-          AsyncSnapshot<List<ScoreRecord>> snapshot,
+          AsyncSnapshot<_ScoreData> snapshot,
         ) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
@@ -54,8 +98,9 @@ class _ScorePageState extends State<ScorePage> {
       );
           }
 
-          final List<ScoreRecord> records =
-              snapshot.data ?? const <ScoreRecord>[];
+          final _ScoreData data =
+              snapshot.data ?? const _ScoreData(<ScoreRecord>[]);
+          final List<ScoreRecord> records = data.records;
           if (records.isEmpty) {
             return const UrpEmptyView(
               icon: Icons.grading_outlined,
@@ -66,6 +111,11 @@ class _ScorePageState extends State<ScorePage> {
 
           final List<TermScores> groups = ScoreStats.groupByTerm(records);
           final List<Widget> children = <Widget>[
+            if (data.cachedAt != null)
+              UrpStaleBanner(
+                label: cachedLabel(data.cachedAt!),
+                onRetry: _reload,
+              ),
             _Overview(records: records),
           ];
           for (final TermScores group in groups) {
