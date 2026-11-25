@@ -4,6 +4,7 @@ import '../../core/http.dart';
 import '../../core/session.dart';
 import 'cx_api.dart';
 import 'cx_parser.dart';
+import 'homework_detail_page.dart';
 import 'models.dart';
 
 /// 作业页。
@@ -292,16 +293,33 @@ class _HomeworkTile extends StatelessWidget {
             ? null
             : Text('截止 ${item.deadline}',
                 style: Theme.of(context).textTheme.bodySmall),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            item.statusText.isEmpty ? item.status.label : item.statusText,
-            style: TextStyle(color: color, fontSize: 12),
-          ),
+        onTap: item.url.isEmpty
+            ? null
+            : () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => HomeworkDetailPage(item: item),
+                  ),
+                ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                item.statusText.isEmpty ? item.status.label : item.statusText,
+                style: TextStyle(color: color, fontSize: 12),
+              ),
+            ),
+            if (item.url.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.only(left: 2),
+                child: Icon(Icons.chevron_right, size: 18),
+              ),
+          ],
         ),
       ),
     );

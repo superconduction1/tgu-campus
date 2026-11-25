@@ -5,8 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../core/http.dart';
-import '../../core/session.dart';
+import 'cx_webview.dart';
 import 'seat_rules.dart';
 import 'seat_store.dart';
 
@@ -69,34 +68,7 @@ class _SeatPageState extends State<SeatPage> {
   ///
   /// 座位页判断登录态靠的就是这些 Cookie；用户登过一次作业，
   /// 这里就不该再问一遍密码。注入失败也没关系，WebView 会自己弹登录页。
-  Future<void> _injectCxCookies(String url) async {
-    try {
-      final StoredCxCredentials? saved = await CxSessionStore().load();
-      final String? payload = saved?.cookies;
-      if (payload == null || payload.isEmpty) return;
-      final CookieJar jar = CookieJar()..restore(payload);
-      if (jar.entries.isEmpty) return;
-      final List<String> domains = cookieDomainsFor(hostOfUrl(url));
-      if (domains.isEmpty) return;
-      for (final String domain in domains) {
-        for (final MapEntry<String, String> entry in jar.entries.entries) {
-          try {
-            await _cookieManager.setCookie(
-              WebViewCookie(
-                name: entry.key,
-                value: entry.value,
-                domain: domain,
-              ),
-            );
-          } catch (_) {
-            // 单个 Cookie 写不进去不影响主流程。
-          }
-        }
-      }
-    } catch (_) {
-      // 没有学习通登录态，就交给 WebView 自己的登录页。
-    }
-  }
+  Future<void> _injectCxCookies(String url) => injectCxCookies(url, manager: _cookieManager);
 
   Future<void> _openWebView(String url) async {
     await _injectCxCookies(url);
