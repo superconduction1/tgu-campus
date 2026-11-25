@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/design.dart';
 import '../../core/session.dart';
 import '../login/login_page.dart';
 import 'urp_api.dart';
@@ -55,46 +56,65 @@ class UrpErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool expired = error is UrpSessionExpiredException;
-    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final Color tint = expired ? TguColors.accents[3] : TguColors.sub;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(
-              expired ? Icons.lock_clock_outlined : Icons.cloud_off_outlined,
-              size: 44,
-              color: scheme.outline,
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: tint.withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                expired ? Icons.lock_clock_outlined : Icons.cloud_off_outlined,
+                size: 28,
+                color: tint,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Text(
               expired ? '登录已过期' : '没能取到数据',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: const TextStyle(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w600,
+                color: TguColors.ink,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               expired ? '重新登录一次就好' : '$error',
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: scheme.outline),
+              style: const TextStyle(
+                fontSize: 12.5,
+                height: 1.45,
+                color: TguColors.sub,
+              ),
             ),
             const SizedBox(height: 20),
             if (expired && onRelogin != null) ...<Widget>[
-              FilledButton(
-                onPressed: onRelogin,
-                child: const Text('重新登录'),
+              SizedBox(
+                width: 156,
+                child: FilledButton(
+                  onPressed: onRelogin,
+                  child: const Text('重新登录'),
+                ),
               ),
               TextButton(
                 onPressed: onRetry,
                 child: const Text('再试一次'),
               ),
             ] else
-              FilledButton.tonal(
-                onPressed: onRetry,
-                child: const Text('重试'),
+              SizedBox(
+                width: 132,
+                child: FilledButton.tonal(
+                  onPressed: onRetry,
+                  child: const Text('重试'),
+                ),
               ),
           ],
         ),
@@ -118,25 +138,41 @@ class UrpEmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(icon, size: 44, color: scheme.outline),
-            const SizedBox(height: 16),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: TguColors.sub.withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 28, color: TguColors.sub),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w600,
+                color: TguColors.ink,
+              ),
+            ),
             if (detail != null) ...<Widget>[
               const SizedBox(height: 8),
               Text(
                 detail!,
                 textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: scheme.outline),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.5,
+                  color: TguColors.sub,
+                ),
               ),
             ],
           ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/design.dart';
 import '../../core/http.dart';
 import '../../core/session.dart';
 import '../chaoxing/cx_api.dart';
@@ -59,17 +60,31 @@ class _TodoPageState extends State<TodoPage> {
     });
   }
 
+  void _open(TodoItem todo) {
+    if (todo.kind != TodoKind.homework || todo.path.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CxWebViewPage(title: todo.title, url: todo.path),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: TguColors.page,
       appBar: AppBar(
         title: const Text('待办'),
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         actions: <Widget>[
           IconButton(
             tooltip: '刷新',
             onPressed: _reload,
             icon: const Icon(Icons.refresh),
+            color: TguColors.sub,
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: FutureBuilder<List<TodoItem>>(
@@ -83,10 +98,10 @@ class _TodoPageState extends State<TodoPage> {
           }
           if (snapshot.hasError) {
             return UrpErrorView(
-        error: snapshot.error!,
-        onRetry: _reload,
-        onRelogin: () => urpRelogin(context, widget.api),
-      );
+              error: snapshot.error!,
+              onRetry: _reload,
+              onRelogin: () => urpRelogin(context, widget.api),
+            );
           }
 
           final List<TodoItem> todos = snapshot.data ?? const <TodoItem>[];
@@ -101,34 +116,45 @@ class _TodoPageState extends State<TodoPage> {
             );
           }
 
+          final int pending =
+              todos.where((TodoItem t) => t.kind == TodoKind.homework).length;
           return ListView(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
             children: <Widget>[
-              for (final TodoItem todo in todos)
+              if (pending > 0)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _TodoCard(
-                    todo: todo,
-                    onTap: todo.kind == TodoKind.homework && todo.path.isNotEmpty
-                        ? () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => CxWebViewPage(
-                                  title: todo.title,
-                                  url: todo.path,
-                                ),
-                              ),
-                            )
-                        : null,
-                  ),
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: _PendingBanner(count: pending),
                 ),
+              SectionTitle(
+                '全部待办',
+                trailing: Text(
+                  '${todos.length} 项',
+                  style: const TextStyle(fontSize: 12, color: TguColors.sub),
+                ),
+              ),
               const SizedBox(height: 8),
+              AppCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: <Widget>[
+                    for (int i = 0; i < todos.length; i++)
+                      _TodoRow(
+                        todo: todos[i],
+                        showDivider: i != todos.length - 1,
+                        onTap: todos[i].path.isEmpty
+                            ? null
+                            : () => _open(todos[i]),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
                 _homeworkUnavailable
                     ? '来源：URP 学分确认、学业预警（学习通作业没取到，可能登录过期）'
                     : '来源：URP 学分确认、学业预警、学习通未交作业',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
+                style: const TextStyle(fontSize: 11.5, color: TguColors.sub),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -139,10 +165,53 @@ class _TodoPageState extends State<TodoPage> {
   }
 }
 
-class _TodoCard extends StatelessWidget {
-  const _TodoCard({required this.todo, this.onTap});
+/// 顶部「还有 N 份作业没交」的提醒条。
+class _PendingBanner extends StatelessWidget {
+  const _PendingBanner({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: TguColors.brand.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(
+            Icons.notifications_active_outlined,
+            size: 18,
+            color: TguColors.brand,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '学习通还有 $count 份作业没交',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: TguColors.brand,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodoRow extends StatelessWidget {
+  const _TodoRow({
+    required this.todo,
+    required this.showDivider,
+    this.onTap,
+  });
 
   final TodoItem todo;
+  final bool showDivider;
   final VoidCallback? onTap;
 
   static IconData _iconFor(TodoKind kind) {
@@ -158,70 +227,78 @@ class _TodoCard extends StatelessWidget {
     }
   }
 
-  static Color _colorFor(TodoKind kind, ColorScheme scheme) {
+  static String _labelFor(TodoKind kind) {
     switch (kind) {
       case TodoKind.creditConfirm:
-        return scheme.primary;
+        return '学分确认';
       case TodoKind.warning:
-        return scheme.error;
+        return '学业预警';
       case TodoKind.homework:
-        return scheme.tertiary;
+        return '学习通';
       case TodoKind.other:
-        return scheme.outline;
+        return '其他';
+    }
+  }
+
+  static Color _colorFor(TodoKind kind) {
+    switch (kind) {
+      case TodoKind.creditConfirm:
+        return TguColors.brand;
+      case TodoKind.warning:
+        return const Color(0xFFD93A3A);
+      case TodoKind.homework:
+        return TguColors.accents[3];
+      case TodoKind.other:
+        return TguColors.sub;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final Color color = _colorFor(todo.kind, scheme);
-
-    final BorderRadius radius = BorderRadius.circular(12);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: radius,
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          decoration: BoxDecoration(
-            color: scheme.surface,
-            borderRadius: radius,
-            border: Border.all(color: scheme.outlineVariant),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(_iconFor(todo.kind), size: 20, color: color),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      todo.title,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    if (todo.detail.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          todo.detail,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: scheme.outline),
+    final Color color = _colorFor(todo.kind);
+    return Column(
+      children: <Widget>[
+        InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
+            child: Row(
+              children: <Widget>[
+                AccentTile(
+                  accent: color,
+                  title: todo.title,
+                  meta: todo.detail,
+                  padding: EdgeInsets.zero,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      SoftBadge(_labelFor(todo.kind), color: color),
+                      if (onTap != null) ...<Widget>[
+                        const SizedBox(width: 2),
+                        const Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: TguColors.sub,
                         ),
-                      ),
-                  ],
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-              if (onTap != null)
-                Icon(Icons.chevron_right, size: 18, color: scheme.outline),
-            ],
+                const SizedBox(width: 2),
+                Icon(_iconFor(todo.kind), size: 16, color: color),
+              ],
+            ),
           ),
         ),
-      ),
+        if (showDivider)
+          const Divider(
+            height: 1,
+            thickness: 1,
+            indent: 14,
+            endIndent: 14,
+            color: TguColors.line,
+          ),
+      ],
     );
   }
 }
