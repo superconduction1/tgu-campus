@@ -338,6 +338,24 @@ class _SetupBodyState extends State<_SetupBody> {
           label: const Text('粘贴剪贴板里的地址'),
         ),
         const SizedBox(height: 20),
+        TextField(
+          controller: _controller,
+          minLines: 1,
+          maxLines: 4,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(
+            labelText: '座位预约地址',
+            hintText: 'https://…',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: _busy ? null : _submit,
+          icon: const Icon(Icons.check),
+          label: const Text('保存并打开'),
+        ),
+        const SizedBox(height: 20),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -360,24 +378,6 @@ class _SetupBodyState extends State<_SetupBody> {
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-        TextField(
-          controller: _controller,
-          minLines: 1,
-          maxLines: 4,
-          keyboardType: TextInputType.url,
-          decoration: const InputDecoration(
-            labelText: '座位预约地址',
-            hintText: 'https://…',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: _busy ? null : _submit,
-          icon: const Icon(Icons.check),
-          label: const Text('保存并打开'),
         ),
         const SizedBox(height: 24),
         Text(

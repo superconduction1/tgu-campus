@@ -355,7 +355,8 @@ class _LoginForm extends StatelessWidget {
           controller: phone,
           keyboardType: TextInputType.phone,
           decoration: const InputDecoration(
-            labelText: '手机号',
+            labelText: '手机号 / 学号',
+            helperText: '学习通用注册时的手机号登录，不是教务学号',
             border: OutlineInputBorder(),
           ),
         ),
