@@ -66,19 +66,12 @@ jobs:
         continue-on-error: true
         run: flutter test --reporter expanded
 
-      - name: 构建 APK（debug，全架构）
+      - name: 构建 APK（debug）
         run: flutter build apk --debug
 
-      # 手机基本都是 arm64，只打这一种能把体积压下来，下载慢的时候差别很明显。
-      - name: 构建 APK（release，按 ABI 拆分）
-        run: flutter build apk --release --split-per-abi
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tgu-campus-arm64
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-          if-no-files-found: error
-
+      # 注：试过 --release / --split-per-abi 都在这套 runner 上直接失败
+      # （step「构建 APK（release）」红，日志要登录才能看），
+      # 所以先只出 debug 包；release 等真要上架再单独调。
       - uses: actions/upload-artifact@v4
         with:
           name: tgu-campus-debug-apk
