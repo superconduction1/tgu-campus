@@ -57,6 +57,11 @@
 |---|---|
 | ![设置](docs/screens/settings.png) | ![自检](docs/screens/checkup.png) |
 
+| 座位预约（粘一次地址，之后内嵌打开） |
+|---|
+| ![座位预约](docs/screens/seat.png) |
+
+
 
 
 关键结论：教务是 **清元优软 URP + Spring Security**，密码不是明文也不是普通
