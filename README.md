@@ -53,6 +53,11 @@
 |---|---|
 | ![成绩](docs/screens/score-empty.png) | ![作业](docs/screens/homework-login.png) |
 
+| 设置（账户 / 工具 / 关于） | 自检（逐项耗时 + 失败原因） |
+|---|---|
+| ![设置](docs/screens/settings.png) | ![自检](docs/screens/checkup.png) |
+
+
 
 关键结论：教务是 **清元优软 URP + Spring Security**，密码不是明文也不是普通
 MD5，而是：
