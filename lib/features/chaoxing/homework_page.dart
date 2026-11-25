@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/design.dart';
 import '../../core/http.dart';
 import '../../core/session.dart';
 import 'cx_api.dart';
@@ -280,44 +281,34 @@ class _HomeworkTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final Color color = _color(scheme);
-    return Card(
+    final String badge =
+        item.statusText.isEmpty ? item.status.label : item.statusText;
+    return AppCard(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        dense: true,
-        title: Text(
-          item.title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: item.deadline.isEmpty
-            ? null
-            : Text('截止 ${item.deadline}',
-                style: Theme.of(context).textTheme.bodySmall),
-        onTap: item.url.isEmpty
-            ? null
-            : () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => HomeworkDetailPage(item: item),
-                  ),
+      padding: EdgeInsets.zero,
+      onTap: item.url.isEmpty
+          ? null
+          : () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => HomeworkDetailPage(item: item),
                 ),
+              ),
+      child: AccentTile(
+        accent: color,
+        title: item.title,
+        meta: item.deadline.isEmpty ? '' : '截止 ${item.deadline}',
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                item.statusText.isEmpty ? item.status.label : item.statusText,
-                style: TextStyle(color: color, fontSize: 12),
-              ),
-            ),
+            SoftBadge(badge, color: color),
             if (item.url.isNotEmpty)
               const Padding(
                 padding: EdgeInsets.only(left: 2),
-                child: Icon(Icons.chevron_right, size: 18),
+                child: Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: TguColors.sub,
+                ),
               ),
           ],
         ),

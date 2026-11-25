@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/design.dart';
 import '../../core/session.dart';
 import '../chaoxing/seat_store.dart';
 import '../diagnostics/checkup_page.dart';
@@ -123,115 +124,281 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
+      backgroundColor: TguColors.page,
+      appBar: AppBar(
+        title: const Text('我'),
+        backgroundColor: TguColors.page,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
               children: <Widget>[
-                _SectionHeader('账户'),
-                ListTile(
-                  leading: const Icon(Icons.badge_outlined),
-                  title: const Text('教务系统'),
-                  subtitle: Text(
-                    _urpUser.isEmpty ? '未登录' : '学号 ${_mask(_urpUser)}',
-                  ),
-                  trailing: TextButton(
-                    onPressed: _urpUser.isEmpty ? null : _forgetUrp,
-                    child: const Text('退出'),
+                _Profile(
+                  user: _urpUser.isEmpty ? '' : _mask(_urpUser),
+                  online: _urpUser.isNotEmpty,
+                ),
+                const SectionTitle('账户'),
+                AppCard(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: <Widget>[
+                      _AccountRow(
+                        icon: Icons.badge_outlined,
+                        title: '教务系统',
+                        subtitle: _urpUser.isEmpty
+                            ? '未登录'
+                            : '学号 ${_mask(_urpUser)}',
+                        action: '退出',
+                        onAction: _urpUser.isEmpty ? null : _forgetUrp,
+                      ),
+                      const _RowDivider(),
+                      _AccountRow(
+                        icon: Icons.school_outlined,
+                        title: '学习通',
+                        subtitle: _cxPhone.isEmpty
+                            ? '未登录'
+                            : '手机号 ${_mask(_cxPhone)}',
+                        action: '清除',
+                        onAction: _cxPhone.isEmpty ? null : _forgetCx,
+                      ),
+                      const _RowDivider(),
+                      _AccountRow(
+                        icon: Icons.event_seat_outlined,
+                        title: '座位预约地址',
+                        subtitle: _seatUrl.isEmpty
+                            ? '还没保存'
+                            : '已保存 · ${Uri.tryParse(_seatUrl)?.host ?? ''}',
+                        action: '清除',
+                        onAction: _seatUrl.isEmpty ? null : _forgetSeat,
+                      ),
+                    ],
                   ),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.school_outlined),
-                  title: const Text('学习通'),
-                  subtitle: Text(
-                    _cxPhone.isEmpty ? '未登录' : '手机号 ${_mask(_cxPhone)}',
-                  ),
-                  trailing: TextButton(
-                    onPressed: _cxPhone.isEmpty ? null : _forgetCx,
-                    child: const Text('清除'),
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.event_seat_outlined),
-                  title: const Text('座位预约地址'),
-                  subtitle: Text(
-                    _seatUrl.isEmpty ? '还没保存' : Uri.tryParse(_seatUrl)?.host ?? '已保存',
-                  ),
-                  trailing: TextButton(
-                    onPressed: _seatUrl.isEmpty ? null : _forgetSeat,
-                    child: const Text('清除'),
-                  ),
-                ),
-                const Divider(height: 32),
-                _SectionHeader('工具'),
-                ListTile(
-                  leading: const Icon(Icons.fact_check_outlined),
-                  title: const Text('运行自检'),
-                  subtitle: const Text('逐个模块试一遍，连不上会写原因'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (BuildContext _) => CheckupPage(api: widget.api),
+                const SectionTitle('工具'),
+                AppCard(
+                  padding: EdgeInsets.zero,
+                  child: AccentTile(
+                    accent: TguColors.brand,
+                    title: '运行自检',
+                    meta: '逐个模块试一遍，连不上会写原因',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext _) =>
+                            CheckupPage(api: widget.api),
+                      ),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: TguColors.sub,
                     ),
                   ),
                 ),
-                const Divider(height: 32),
-                _SectionHeader('关于'),
-                const ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text('天工校园'),
-                  subtitle: Text('版本 0.1.0 · 个人自用'),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Text(
-                    '所有数据只存在这台手机上：学号密码、学习通账号、会话 Cookie 都放在'
-                    '系统的加密存储里，没有服务器，也不会上传。',
-                    style: theme.textTheme.bodySmall,
+                const SectionTitle('关于'),
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: TguColors.brand,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.school_rounded,
+                              size: 17,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                '天工校园',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: TguColors.ink,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                '版本 0.1.0 · 个人自用',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: TguColors.sub,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        '所有数据只存在这台手机上：学号密码、学习通账号、会话 Cookie '
+                        '都放在系统的加密存储里，没有服务器，也不会上传。',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.5,
+                          color: TguColors.sub,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        '不做的事：不代做作业、不自动签到、不上架应用商店。'
+                        '座位页只是把学校页面装进来，预约和退约都由你自己点。',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.5,
+                          color: TguColors.sub,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        '教务 URP 6.0（jwxs.tiangong.edu.cn）· 学习通：超星',
+                        style: TextStyle(fontSize: 11.5, color: TguColors.sub),
+                      ),
+                    ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Text(
-                    '不做的事：不代做作业、不自动签到、不上架应用商店。'
-                    '座位页只是把学校页面装进来，预约和退约都由你在页面里自己点。',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Text(
-                    '教务：URP 6.0（jwxs.tiangong.edu.cn）· 学习通：超星',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
               ],
             ),
     );
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.title);
+class _Profile extends StatelessWidget {
+  const _Profile({required this.user, required this.online});
 
+  final String user;
+  final bool online;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: TguColors.brand,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            alignment: Alignment.center,
+            child: const Text(
+              '天',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  user.isEmpty ? '未登录' : user,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: TguColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  online ? '天津工业大学 · 教务已连接' : '天津工业大学',
+                  style: const TextStyle(fontSize: 12, color: TguColors.sub),
+                ),
+              ],
+            ),
+          ),
+          SoftBadge(
+            online ? '已登录' : '离线',
+            color: online ? const Color(0xFF12A594) : TguColors.sub,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountRow extends StatelessWidget {
+  const _AccountRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.action,
+    required this.onAction,
+  });
+
+  final IconData icon;
   final String title;
+  final String subtitle;
+  final String action;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      child: Row(
+        children: <Widget>[
+          Icon(icon, size: 19, color: TguColors.sub),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: TguColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 12, color: TguColors.sub),
+                ),
+              ],
             ),
+          ),
+          TextButton(
+            onPressed: onAction,
+            child: Text(action, style: const TextStyle(fontSize: 13)),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _RowDivider extends StatelessWidget {
+  const _RowDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Divider(
+      height: 1,
+      thickness: 1,
+      indent: 45,
+      endIndent: 14,
+      color: TguColors.line,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/design.dart';
 import '../../core/session.dart';
 import '../chaoxing/homework_page.dart';
 import '../chaoxing/seat_page.dart';
@@ -154,77 +155,124 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
+      backgroundColor: TguColors.page,
       appBar: AppBar(
-        title: const Text('天工校园'),
+        backgroundColor: TguColors.page,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        titleSpacing: 16,
+        title: Row(
+          children: <Widget>[
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: TguColors.brand,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.school_rounded,
+                size: 18,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              '天工校园',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: TguColors.ink,
+              ),
+            ),
+          ],
+        ),
         actions: <Widget>[
           IconButton(
             tooltip: '设置',
             onPressed: _openSettings,
-            icon: const Icon(Icons.settings_outlined),
+            icon: const Icon(Icons.settings_outlined, color: TguColors.sub),
           ),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: <Widget>[
           TodayCard(api: widget.api),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _dumping ? null : _exportDump,
-              icon: _dumping
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_alt_outlined, size: 16),
-              label: Text(
-                _dumping ? '导出中…' : '导出诊断包',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              '功能模块',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
+          const SectionTitle('校园服务'),
           GridView.count(
             crossAxisCount: 3,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.95,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.02,
             children: _modules.map((_ModuleEntry module) {
-              return Card(
+              final Color accent = TguColors.accentFor(module.title);
+              return Container(
+                decoration: BoxDecoration(
+                  color: TguColors.card,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: TguColors.line),
+                ),
+                clipBehavior: Clip.antiAlias,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
                   onTap: () => _openModule(module),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Icon(module.icon, size: 32, color: scheme.primary),
-                      const SizedBox(height: 8),
-                      Text(module.title),
-                      const SizedBox(height: 2),
-                      Text(
-                        module.source,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: Icon(module.icon, size: 19, color: accent),
+                        ),
+                        const Spacer(),
+                        Text(
+                          module.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: TguColors.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          module.source,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: TguColors.sub,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
             }).toList(),
+          ),
+          const SectionTitle('工具'),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: AccentTile(
+              accent: TguColors.sub,
+              title: _dumping ? '正在导出诊断包…' : '导出诊断包',
+              meta: '把教务真实页面存成文件，方便对着写解析器',
+              onTap: _dumping ? null : _exportDump,
+              trailing: const Icon(
+                Icons.save_alt_outlined,
+                size: 18,
+                color: TguColors.sub,
+              ),
+            ),
           ),
         ],
       ),

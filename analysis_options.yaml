@@ -10,6 +10,7 @@ analyzer:
     - dump/**
     - dump-cx/**
     - android/**
+    - build/**
 
 linter:
   rules:

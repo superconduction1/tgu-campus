@@ -1,5 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
+import '../../core/design.dart';
 import 'models.dart';
 import 'today.dart';
 import 'urp_api.dart';
@@ -48,10 +49,14 @@ class _TodayCardState extends State<TodayCard> {
                 Icon(
                   expired ? Icons.lock_clock_outlined : Icons.cloud_off_outlined,
                   size: 18,
+                  color: TguColors.sub,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(expired ? '教务登录已过期' : '今天的课没取到'),
+                  child: Text(
+                    expired ? '教务登录已过期' : '今天的课没取到',
+                    style: const TextStyle(fontSize: 13.5, color: TguColors.ink),
+                  ),
                 ),
                 if (expired)
                   TextButton(
@@ -64,7 +69,9 @@ class _TodayCardState extends State<TodayCard> {
             ),
           );
         }
-        return _Shell(child: _TodayBody(schedule: snapshot.data!, onRefresh: _reload));
+        return _Shell(
+          child: _TodayBody(schedule: snapshot.data!, onRefresh: _reload),
+        );
       },
     );
   }
@@ -77,11 +84,9 @@ class _Shell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        child: child,
-      ),
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      child: child,
     );
   }
 }
@@ -91,16 +96,18 @@ class _LoadingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return const Row(
       children: <Widget>[
-        const SizedBox(
-          width: 16,
-          height: 16,
+        SizedBox(
+          width: 15,
+          height: 15,
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
-        const SizedBox(width: 10),
-        Text('正在取今天的课…',
-            style: Theme.of(context).textTheme.bodySmall),
+        SizedBox(width: 10),
+        Text(
+          '正在取今天的课…',
+          style: TextStyle(fontSize: 13, color: TguColors.sub),
+        ),
       ],
     );
   }
@@ -114,52 +121,77 @@ class _TodayBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme scheme = theme.colorScheme;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Row(
           children: <Widget>[
-            Text('今天 · 周${schedule.weekdayLabel}',
-                style: theme.textTheme.titleMedium),
+            const Text(
+              '今天',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: TguColors.ink,
+              ),
+            ),
             const SizedBox(width: 8),
-            Text('第${schedule.week}周',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: scheme.outline)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: TguColors.brand.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '周${schedule.weekdayLabel} · 第${schedule.week}周',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: TguColors.brand,
+                ),
+              ),
+            ),
             const Spacer(),
             IconButton(
               tooltip: '刷新',
               visualDensity: VisualDensity.compact,
               onPressed: onRefresh,
-              icon: const Icon(Icons.refresh, size: 18),
+              icon: const Icon(
+                Icons.refresh,
+                size: 17,
+                color: TguColors.sub,
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 6),
         if (schedule.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Text('今天没课',
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: scheme.outline)),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              '今天没课',
+              style: TextStyle(fontSize: 13.5, color: TguColors.sub),
+            ),
           )
         else
           for (final TodayClass item in schedule.classes)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 5),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   SizedBox(
-                    width: 92,
+                    width: 86,
                     child: Text(
-                      item.timeRange.isEmpty ? item.sessionLabel : item.timeRange,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.primary,
-                        fontFeatures: const <FontFeature>[
-                          FontFeature.tabularFigures()
+                      item.timeRange.isEmpty
+                          ? item.sessionLabel
+                          : item.timeRange,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        height: 1.5,
+                        fontWeight: FontWeight.w600,
+                        color: TguColors.brand,
+                        fontFeatures: <FontFeature>[
+                          FontFeature.tabularFigures(),
                         ],
                       ),
                     ),
@@ -168,15 +200,30 @@ class _TodayBody extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(item.name, style: theme.textTheme.bodyMedium),
+                        Text(
+                          item.name,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            height: 1.35,
+                            fontWeight: FontWeight.w600,
+                            color: TguColors.ink,
+                          ),
+                        ),
                         if (item.room.isNotEmpty || item.teacher.isNotEmpty)
-                          Text(
-                            <String>[
-                              if (item.room.isNotEmpty) item.room,
-                              if (item.teacher.isNotEmpty) item.teacher,
-                            ].join(' · '),
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: scheme.outline),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              <String>[
+                                if (item.room.isNotEmpty) item.room,
+                                if (item.teacher.isNotEmpty) item.teacher,
+                              ].join(' · '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: TguColors.sub,
+                              ),
+                            ),
                           ),
                       ],
                     ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/app_cache.dart';
+import '../../core/design.dart';
 import '../../core/disk_cache.dart';
 import '../../core/snapshot.dart';
 import 'models.dart';
@@ -10,7 +11,7 @@ import 'score_stats.dart';
 import 'urp_api.dart';
 import 'urp_widgets.dart';
 
-/// 成绩页：按学期分组，顶部给汇总。
+/// 成绩页：学期分段切换 + 汇总数字 + 课程清单。
 class ScorePage extends StatefulWidget {
   const ScorePage({super.key, required this.api, this.cache});
 
@@ -35,10 +36,10 @@ class _ScorePageState extends State<ScorePage> {
   late final DiskCache _cache = widget.cache ?? appCache();
   late Future<_ScoreData> _future = _load();
 
+  /// 0 表示「全部学期」，其余对应 groups[selected - 1]。
+  int _selected = 0;
+
   /// 先打网络；失败就退回上次存下来的原文重新解析。
-  ///
-  /// 退回时带上缓存时间，页面上要明确写「这是几点的数据」，
-  /// 不能让人以为是刚查到的。
   Future<_ScoreData> _load() async {
     try {
       final String source = await widget.api.fetchScoresSource();
@@ -71,8 +72,12 @@ class _ScorePageState extends State<ScorePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: TguColors.page,
       appBar: AppBar(
         title: const Text('成绩'),
+        backgroundColor: TguColors.page,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         actions: <Widget>[
           IconButton(
             tooltip: '刷新',
@@ -92,10 +97,10 @@ class _ScorePageState extends State<ScorePage> {
           }
           if (snapshot.hasError) {
             return UrpErrorView(
-        error: snapshot.error!,
-        onRetry: _reload,
-        onRelogin: () => urpRelogin(context, widget.api),
-      );
+              error: snapshot.error!,
+              onRetry: _reload,
+              onRelogin: () => urpRelogin(context, widget.api),
+            );
           }
 
           final _ScoreData data =
@@ -110,25 +115,50 @@ class _ScorePageState extends State<ScorePage> {
           }
 
           final List<TermScores> groups = ScoreStats.groupByTerm(records);
-          final List<Widget> children = <Widget>[
-            if (data.cachedAt != null)
-              UrpStaleBanner(
-                label: cachedLabel(data.cachedAt!),
-                onRetry: _reload,
-              ),
-            _Overview(records: records),
-          ];
-          for (final TermScores group in groups) {
-            children.add(_TermHeader(group: group));
-            for (final ScoreRecord record in group.records) {
-              children.add(_ScoreTile(record: record));
-            }
-          }
-          children.add(const SizedBox(height: 24));
+          final int selected = _selected.clamp(0, groups.length);
+          final List<ScoreRecord> visible = selected == 0
+              ? records
+              : groups[selected - 1].records;
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            children: children,
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+            children: <Widget>[
+              if (data.cachedAt != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: UrpStaleBanner(
+                    label: cachedLabel(data.cachedAt!),
+                    onRetry: _reload,
+                  ),
+                ),
+              _SummaryCard(
+                records: visible,
+                total: records.length,
+                groups: groups,
+                selected: selected,
+                onSelected: (int index) => setState(() => _selected = index),
+                stale: data.cachedAt != null,
+              ),
+              const SectionTitle('课程明细'),
+              AppCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: <Widget>[
+                    for (int i = 0; i < visible.length; i++) ...<Widget>[
+                      if (i > 0)
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          indent: 14,
+                          endIndent: 14,
+                          color: TguColors.line,
+                        ),
+                      _ScoreRow(record: visible[i]),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -142,127 +172,113 @@ String _trim(double value, int digits) {
   return text.replaceFirst(RegExp(r'\.?0+$'), '');
 }
 
-class _Overview extends StatelessWidget {
-  const _Overview({required this.records});
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.records,
+    required this.total,
+    required this.groups,
+    required this.selected,
+    required this.onSelected,
+    required this.stale,
+  });
 
   final List<ScoreRecord> records;
+  final int total;
+  final List<TermScores> groups;
+  final int selected;
+  final ValueChanged<int> onSelected;
+  final bool stale;
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
     final double credits = ScoreStats.totalCredits(records);
     final double? average = ScoreStats.weightedAverage(records);
     final int failed = ScoreStats.failedCount(records);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _Stat(label: '门数', value: '${records.length}'),
-          _Stat(label: '已修学分', value: _trim(credits, 2)),
-          _Stat(
-            label: '加权平均',
-            value: average == null ? '—' : average.toStringAsFixed(1),
-          ),
-          _Stat(
-            label: '不及格',
-            value: '$failed',
-            danger: failed > 0,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({
-    required this.label,
-    required this.value,
-    this.danger = false,
-  });
-
-  final String label;
-  final String value;
-  final bool danger;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Text(
-          value,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: danger ? scheme.error : null,
+          Row(
+            children: <Widget>[
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: TguColors.brand.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.emoji_events_outlined,
+                  size: 17,
+                  color: TguColors.brand,
+                ),
               ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: scheme.outline),
-        ),
-      ],
-    );
-  }
-}
-
-class _TermHeader extends StatelessWidget {
-  const _TermHeader({required this.group});
-
-  final TermScores group;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final double? average = group.average;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 22, 4, 8),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              group.term,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w600),
+              const SizedBox(width: 10),
+              const Text(
+                '成绩',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: TguColors.ink,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '$total 门',
+                style: const TextStyle(fontSize: 12, color: TguColors.sub),
+              ),
+              const Spacer(),
+              if (stale)
+                const SoftBadge('离线', color: Color(0xFFF2994A)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: StatGrid(
+              items: <StatItem>[
+                StatItem(
+                  average == null ? '—' : average.toStringAsFixed(1),
+                  '加权均分',
+                ),
+                StatItem(_trim(credits, 2), '学分'),
+                StatItem('${records.length}', '门数'),
+                StatItem(
+                  '$failed',
+                  '不及格',
+                  danger: failed > 0,
+                ),
+              ],
             ),
           ),
-          Text(
-            <String>[
-              if (group.credits > 0) '${_trim(group.credits, 2)} 学分',
-              if (average != null) '均分 ${average.toStringAsFixed(1)}',
-            ].join(' · '),
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: scheme.outline),
-          ),
+          const SizedBox(height: 6),
+          if (groups.length > 1)
+            Transform.translate(
+              offset: const Offset(-16, 0),
+              child: PillTabs(
+                items: <String>[
+                  '全部',
+                  for (final TermScores group in groups) group.term,
+                ],
+                selectedIndex: selected,
+                onChanged: onSelected,
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-class _ScoreTile extends StatelessWidget {
-  const _ScoreTile({required this.record});
+class _ScoreRow extends StatelessWidget {
+  const _ScoreRow({required this.record});
 
   final ScoreRecord record;
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
     final bool passed = record.isPassed;
     final String meta = <String>[
       if (record.courseType.isNotEmpty) record.courseType,
@@ -270,16 +286,17 @@ class _ScoreTile extends StatelessWidget {
       if (record.gpa.isNotEmpty) '绩点 ${record.gpa}',
     ].join(' · ');
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-      title: Text(record.courseName),
-      subtitle: meta.isEmpty ? null : Text(meta),
+    return AccentTile(
+      accent: TguColors.accentFor(record.courseName),
+      title: record.courseName,
+      meta: meta,
       trailing: Text(
         record.score.isEmpty ? '—' : record.score,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: passed ? scheme.primary : scheme.error,
-            ),
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+          color: passed ? TguColors.ink : const Color(0xFFD93A3A),
+        ),
       ),
     );
   }

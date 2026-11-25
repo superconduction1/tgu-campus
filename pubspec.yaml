@@ -22,5 +22,10 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+# path_provider_android 2.3.x 通过 package:jni 走 FFI，构建时要 NDK + CMake（≈800MB 工具链）。
+# 我们只用到 getApplicationDocumentsDirectory，钉回 2.2.x 的纯 MethodChannel 实现，构建就不需要 NDK 了。
+dependency_overrides:
+  path_provider_android: 2.2.15
+
 flutter:
   uses-material-design: true

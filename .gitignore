@@ -1,16 +1,15 @@
-# Flutter / Dart
+﻿# Flutter / Dart
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 build/
 *.dill
 
-# 本机下载的工具链与依赖缓存（加起来 4GB+，别提交）
-.tools/
+# 鏈満涓嬭浇鐨勫伐鍏烽摼涓庝緷璧栫紦瀛橈紙鍔犺捣鏉?4GB+锛屽埆鎻愪氦锛?.tools/
 .home/
 .pub-cache/
 
-# 校准工具抓下来的真实页面：含学号、姓名、课表，只在本机留着
+# 鏍″噯宸ュ叿鎶撲笅鏉ョ殑鐪熷疄椤甸潰锛氬惈瀛﹀彿銆佸鍚嶃€佽琛紝鍙湪鏈満鐣欑潃
 dump/
 dump-cx/
 
@@ -21,8 +20,10 @@ android/key.properties
 *.jks
 *.keystore
 
-# 编辑器
-.idea/
+# 缂栬緫鍣?.idea/
 .vscode/
 *.iml
 .keys/
+
+b.cmd
+.metadata
