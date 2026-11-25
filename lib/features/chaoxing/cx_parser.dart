@@ -91,32 +91,69 @@ List<CxCourse> parseCourseList(String html) {
   return byKey.values.toList(growable: false);
 }
 
+/// 把页面里所有 `<input>` 的 id/name → value 收成一张表（键统一小写）。
+///
+/// 用整表而不是逐个正则找，是因为不同课程页的写法不统一：
+/// 有的 `id` 在后、有的只有 `name`、大小写也见过 `courseId` 这种。
+Map<String, String> inputValues(String html) {
+  final Map<String, String> out = <String, String>{};
+  for (final RegExpMatch m
+      in RegExp(r'<input\b[^>]*>', caseSensitive: false).allMatches(html)) {
+    final String tag = m.group(0)!;
+    final RegExpMatch? key =
+        RegExp('''(?:id|name)=["']([^"']+)["']''', caseSensitive: false)
+            .firstMatch(tag);
+    if (key == null) continue;
+    final RegExpMatch? value =
+        RegExp('''value=["']([^"']*)["']''', caseSensitive: false).firstMatch(tag);
+    out.putIfAbsent(key.group(1)!.toLowerCase(), () => value?.group(1) ?? '');
+  }
+  return out;
+}
+
+/// 一句话描述这个页面长什么样，专供出错时贴进对话里定位问题。
+String pageFingerprint(String html, {int? statusCode}) {
+  final RegExpMatch? title =
+      RegExp('<title[^>]*>([\\s\\S]{0,80}?)</title>', caseSensitive: false)
+          .firstMatch(html);
+  final List<String> keys = inputValues(html).keys.take(10).toList();
+  return 'HTTP ${statusCode ?? '?'}，${html.length} 字节'
+      '${title == null ? '' : '，标题「${title.group(1)!.trim()}」'}'
+      '${keys.isEmpty ? '，没有任何 input' : '，input：${keys.join(',')}'}';
+}
+
 /// 从课程页的隐藏域里取拼作业 URL 的参数。
 ///
 /// 实测：`courseid=267530050`、`clazzid=155823420`、`cpi=562623583`、
 /// `oldenc=f82df2ca...`、`t=1795598066314`。
 CourseContext? parseCourseContext(String html) {
-  String pick(String id) {
-    final RegExp a = RegExp(
-      '<input[^>]*id=["\']$id["\'][^>]*value=["\']([^"\']*)["\']',
+  final Map<String, String> values = inputValues(html);
+  String pick(String id) => values[id.toLowerCase()] ?? '';
+
+  // 有些课程页（新版/军事理论那种）隐藏域是空的，参数写在 <script> 里：
+  //   var courseid = "267530050"; 或 "clazzid":"155823420"
+  // 这里做一次兜底，省得整门课直接失败。
+  String fromScript(String id) {
+    final RegExp re = RegExp(
+      '''$id["']?\\s*[:=]\\s*["']?([A-Za-z0-9_-]{3,})''',
       caseSensitive: false,
     );
-    final RegExp b = RegExp(
-      '<input[^>]*value=["\']([^"\']*)["\'][^>]*id=["\']$id["\']',
-      caseSensitive: false,
-    );
-    final RegExpMatch? m = a.firstMatch(html) ?? b.firstMatch(html);
-    return m?.group(1) ?? '';
+    return re.firstMatch(html)?.group(1) ?? '';
+  }
+
+  String read(String id) {
+    final String v = pick(id);
+    return v.isNotEmpty ? v : fromScript(id);
   }
 
   final CourseContext ctx = CourseContext(
-    courseId: pick('courseid'),
-    clazzId: pick('clazzid'),
-    cpi: pick('cpi'),
-    t: pick('t'),
-    enc: pick('enc'),
-    workEnc: pick('workEnc'),
-    openc: pick('openc'),
+    courseId: read('courseid'),
+    clazzId: read('clazzid'),
+    cpi: read('cpi'),
+    t: read('t'),
+    enc: read('enc'),
+    workEnc: read('workenc'),
+    openc: read('openc'),
   );
   return ctx.isUsable ? ctx : null;
 }

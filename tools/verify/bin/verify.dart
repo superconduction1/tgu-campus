@@ -1084,6 +1084,45 @@ Future<void> main() async {
     check('已结束课程：链接非空', parsed.first.pageUrl.isNotEmpty, true);
   }
 
+  stdout.writeln('\n[25] 隐藏域：整表解析 + 脚本兜底 + 出错时的页面指纹');
+
+  // 大小写和 name= 的写法都见过，不能只认 id="courseid"。
+  final Map<String, String> mixedInputs = inputValues(
+    '<input name="courseId" value="267530050">'
+    '<input id="CLAZZID" value="155823420">',
+  );
+  check('name= 也认', mixedInputs['courseid'], '267530050');
+  check('大小写不敏感', mixedInputs['clazzid'], '155823420');
+
+  // 隐藏域为空时，参数可能写在脚本里（军事理论那种页面）。
+  final CourseContext? fromScript = parseCourseContext(
+    '<html><script>var courseid = "267530050";'
+    'var clazzid = "155823420"; var cpi = "562623583";</script></html>',
+  );
+  check('脚本兜底：能解析', fromScript != null, true);
+  check('脚本兜底：courseId', fromScript?.courseId, '267530050');
+  check('脚本兜底：clazzId', fromScript?.clazzId, '155823420');
+
+  final String fingerprint = pageFingerprint(
+    '<html><head><title>课程</title></head><body>'
+    '<input id="courseid" value="1"></body></html>',
+    statusCode: 200,
+  );
+  check('页面指纹含标题', fingerprint.contains('标题「课程」'), true);
+  check('页面指纹含 input', fingerprint.contains('courseid'), true);
+
+  final File pageDump = File(
+    '../../dump-cx/27_mooc1.chaoxing.com_mooc-ans_visit_stucoursemiddle'
+    '_courseid_267530050_clazzid_155823420_vc_.html',
+  );
+  if (pageDump.existsSync()) {
+    final String realPage = decodeHtmlBytes(pageDump.readAsBytesSync());
+    final CourseContext? ctx = parseCourseContext(realPage);
+    check('真实课程页：仍解析得出', ctx != null, true);
+    check('真实课程页：enc 32 位', ctx?.enc.length, 32);
+    check('真实课程页：workEnc 32 位', ctx?.workEnc.length, 32);
+  }
+
   stdout.writeln('\n结果：$_passed 通过，$_failed 失败\n');
   if (_failed > 0) exit(1);
 }

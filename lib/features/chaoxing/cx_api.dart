@@ -163,18 +163,21 @@ class ChaoxingApi {
 
     // 课程列表给的是「新版界面」链接（带 ismooc2=1），那页没有隐藏域。
     CourseContext? ctx;
+    String lastFingerprint = '一个页面都没取到';
     for (final Uri candidate in <Uri>[
       normalizeCoursePageUri(pageUri),
       _canonicalCourseUri(course),
     ]) {
       final HttpResult page = await client.get(candidate);
+      lastFingerprint = pageFingerprint(page.html, statusCode: page.statusCode);
       ctx = parseCourseContext(page.html);
       if (ctx != null) break;
     }
     if (ctx == null) {
+      // 把最后那页长什么样写进错误里，用户复制自检报告就能直接定位。
       throw CxDeniedException(
-        '${course.name}：课程页里没有隐藏域，登录态可能已失效，'
-        '去「设置 → 学习通」重新登录再试',
+        '${course.name}：课程页里没有 courseid/clazzid；'
+        '最后取的页面是 $lastFingerprint',
       );
     }
     final HttpResult list =
