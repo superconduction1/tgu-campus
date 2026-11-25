@@ -42,6 +42,9 @@ Future<void> main(List<String> args) async {
   final String sdkPath = rawSdk.resolveSymbolicLinksSync();
 
   final Directory projectRoot = Directory('../..').absolute;
+  // 用归一化后的路径做前缀裁剪，否则拿到的短路径还是绝对路径
+  final String rootPrefix =
+      '${projectRoot.resolveSymbolicLinksSync().replaceAll('\\', '/')}/';
   final List<String> includedPaths = <String>[];
   final List<File> files = <File>[];
 
@@ -81,7 +84,7 @@ Future<void> main(List<String> args) async {
     final String path = file.resolveSymbolicLinksSync();
     final String short = path
         .replaceAll('\\', '/')
-        .replaceFirst('${projectRoot.path.replaceAll('\\', '/')}/', '');
+        .replaceFirst(rootPrefix, '');
     final AnalysisContext context = collection.contextFor(path);
     final SomeResolvedUnitResult result =
         await context.currentSession.getResolvedUnit(path);

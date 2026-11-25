@@ -147,7 +147,7 @@ dart run bin/resolve.dart   # 全量类型检查（需要 FLUTTER_ROOT）
   以及**用 dump 里的真实响应做的回归**，最后还会把 `dump/`+`dump-cx/` 里
   **全部 158 个真实页面**过一遍所有解析器，确保任何一页都不会把解析器搞崩。**当前 214 项通过 / 0 失败。**
 - `syntax.dart`：用 analyzer 的纯语法解析检查 `lib/` 下每个文件。
-  不需要 Flutter SDK，所以连界面代码也能查。**当前 30 个文件全部通过。**
+  不需要 Flutter SDK，所以连界面代码也能查。**当前 31 个文件全部通过。**
 - `resolve.dart`：**真类型检查**。用 analyzer 的 `AnalysisContextCollection` 在
   本进程内做完整解析（把 `package:flutter` 一起解析进来），能抓出方法不存在、
   参数类型不匹配、构造函数缺参数这类语法检查看不见的错。
@@ -158,7 +158,7 @@ dart run bin/resolve.dart   # 全量类型检查（需要 FLUTTER_ROOT）
   dart run bin/resolve.dart
   ```
 
-  **当前 30 个文件 0 error / 0 warning。**（它抓出的第一个真 bug：
+  **当前 lib/ + test/ 共 36 个文件 0 error / 0 warning。**（它抓出的第一个真 bug：
   `lib/features/diagnostics/diagnostics.dart` 的 `../core/` 少一层，应为 `../../core/`。）
 
 - 还有一步「真编译」：用 Flutter 自带的 `frontend_server` 把整个 App 编成 kernel，

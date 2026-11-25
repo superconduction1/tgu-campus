@@ -1,4 +1,4 @@
-﻿# 怎么在自己的手机上跑起来
+# 怎么在自己的手机上跑起来
 
 仓库里只有 `lib/`（Dart 代码）和 `pubspec.yaml`，**没有 `android/` 目录** ——
 生成平台目录必须有 Flutter SDK。两条路，选一条：
@@ -12,14 +12,50 @@
 
 # 路线 A：GitHub Actions（推荐）
 
-1. 在 GitHub 建一个仓库，把 `tgu_campus/` **整个目录的内容**作为仓库根目录推上去
-   （`.gitignore` 已经把 `.tools/`、`.pub-cache/`、`dump/` 这些 4GB 的本机垃圾排除掉了）。
-2. 打开仓库的 **Actions** 标签页 → 左边选「构建 Debug APK」→ 右边 **Run workflow**。
-3. 等 5～10 分钟，构建成功后点进这次运行，页面底部 **Artifacts** 下载
-   `tgu-campus-debug-apk`，解压出 `app-debug.apk`。
+本机不用装 Flutter / JDK / Android SDK，全部在 GitHub 的机器上跑完。
+
+## 1. 建一个空仓库
+
+浏览器打开 <https://github.com/new>，**不要**勾「Add a README / .gitignore / license」
+（仓库必须完全空，否则推上去会冲突）。名字随便，比如 `tgu-campus`。
+
+## 2. 把本地仓库推上去
+
+仓库已经在本地初始化并提交好了（分支 `main`，一次提交，55 个文件 0.35 MB）。
+只需把 `你的用户名` 和 `仓库名` 换掉：
+
+```powershell
+cd C:\Users\Q\Documents\deepseek-harness\default-workspace\tgu_campus
+
+git remote add origin https://github.com/你的用户名/tgu-campus.git
+git push -u origin main
+```
+
+第一次 push 会弹浏览器让你登录 GitHub（Git 自带的凭据管理器，授权一次就行）。
+如果之前设过错误的 remote，先 `git remote remove origin` 再来一次。
+
+> 想改提交里显示的名字/邮箱（现在是占位的 `tgu-campus`）：
+> `git config user.name "你的名字"; git config user.email "你的GitHub邮箱"`
+> 然后 `git commit --amend --reset-author --no-edit`。
+
+## 3. 跑构建
+
+推上去后 Actions **会自动开始跑一次**；没跑或失败了就手动触发：
+
+1. 打开仓库 → **Actions** 标签 → 左边「构建 Debug APK」→ 右边 **Run workflow** → 绿色按钮。
+2. 整个流程 5～10 分钟（第一次要下 Flutter SDK 和 Gradle，会慢一些）。
+3. 成功后点进这次运行，页面底部 **Artifacts** 下载 `tgu-campus-debug-apk`，
+   解压出 `app-debug.apk`。
 4. 传到手机安装（要允许「安装未知来源应用」）。
 
-工作流文件是 `.github/workflows/android-debug.yml`，推送到 `main`/`master` 也会自动跑。
+工作流 `.github/workflows/android-debug.yml` 一共 6 步，任何一步红了都会停：
+
+| 步骤 | 挂了说明什么 |
+|---|---|
+| 准备 Android 工程 | `flutter create` 出问题，或补丁脚本没找到文件（日志里会打印 `!!`） |
+| 断言集 | 解析器 / 加密 / 时间规则的 214 项断言里有失败，日志会打印哪一条 |
+| 静态检查 | `flutter analyze` 有 error（info 不算） |
+| 构建 APK | Gradle / 依赖问题，看日志里第一个 `FAILURE:` |
 
 > Debug 包用调试签名，能装机自用；别上架、别分发给不特定的人。
 
@@ -110,13 +146,13 @@ flutter build apk --debug         # 产物：build/app/outputs/flutter-apk/app-d
 
 工具链不齐（沙箱不让工具 spawn 子进程），但该验的都验了：
 
-- `tools/verify/bin/verify.dart`：**203 项断言**，纯 Dart，覆盖密码变换、AES、
+- `tools/verify/bin/verify.dart`：**214 项断言**，纯 Dart，覆盖密码变换、AES、
   HTML 表格提取、课表解析与周次过滤、成绩统计、学期条、编码嗅探、
   学习通课程/作业解析、座位时间规则与 Cookie 域推导（含真实抓包回归），
   外加把 `dump/` + `dump-cx/` 的 **158 个真实页面**全过一遍解析器，确认零异常。
-- `tools/verify/bin/syntax.dart`：`lib/` 全部 **30 个文件** 语法检查。
+- `tools/verify/bin/syntax.dart`：`lib/` 全部 **31 个文件** 语法检查。
 - `tools/verify/bin/resolve.dart`：**真类型检查**（analyzer 在进程内解析，
-  连 `package:flutter` 一起），30 个文件 **0 error / 0 warning**。
+  连 `package:flutter` 一起），`lib/` + `test/` 共 **36 个文件** 0 error / 0 warning。
 - `frontend_server` 把整个 App 编成 kernel，**退出码 0**（约 61 MB），
   相当于 `flutter build apk` 的 Dart 阶段。
 
