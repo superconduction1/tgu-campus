@@ -1,9 +1,10 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
 import '../../core/app_cache.dart';
+import '../../core/design.dart';
 import '../../core/disk_cache.dart';
 import '../../core/snapshot.dart';
 import 'models.dart';
@@ -112,14 +113,19 @@ class _TimetablePageState extends State<TimetablePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: TguColors.page,
       appBar: AppBar(
         title: const Text('课表'),
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         actions: <Widget>[
           IconButton(
             tooltip: '刷新',
             onPressed: _reload,
             icon: const Icon(Icons.refresh),
+            color: TguColors.sub,
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: FutureBuilder<_Loaded>(
@@ -186,31 +192,98 @@ class _WeekBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      color: scheme.surfaceContainerHighest,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          IconButton(
-            onPressed: week > 1 ? () => onChanged(week - 1) : null,
-            icon: const Icon(Icons.chevron_left),
-          ),
-          Text(
-            '第 $week 周',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          IconButton(
-            onPressed: week < 30 ? () => onChanged(week + 1) : null,
-            icon: const Icon(Icons.chevron_right),
-          ),
-          if (currentWeek != null && currentWeek != week)
-            TextButton(
-              onPressed: () => onChanged(currentWeek!),
-              child: const Text('本周'),
+    final bool isCurrent = currentWeek == week;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+      child: Container(
+        height: 44,
+        decoration: BoxDecoration(
+          color: TguColors.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: TguColors.line),
+        ),
+        child: Row(
+          children: <Widget>[
+            _ArrowButton(
+              icon: Icons.chevron_left,
+              onTap: week > 1 ? () => onChanged(week - 1) : null,
             ),
-        ],
+            Expanded(
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      '第 $week 周',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: TguColors.ink,
+                      ),
+                    ),
+                    if (isCurrent) ...<Widget>[
+                      const SizedBox(width: 6),
+                      const SoftBadge('本周', color: TguColors.brand),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            _ArrowButton(
+              icon: Icons.chevron_right,
+              onTap: week < 30 ? () => onChanged(week + 1) : null,
+            ),
+            if (currentWeek != null && !isCurrent)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(9),
+                  onTap: () => onChanged(currentWeek!),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: TguColors.brand.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Text(
+                      '回本周',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: TguColors.brand,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 周次条两端的箭头，禁用了就变浅。
+class _ArrowButton extends StatelessWidget {
+  const _ArrowButton({required this.icon, this.onTap});
+
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: SizedBox(
+        width: 40,
+        height: 44,
+        child: Icon(
+          icon,
+          size: 20,
+          color: onTap == null ? TguColors.line : TguColors.sub,
+        ),
       ),
     );
   }
@@ -227,17 +300,17 @@ class _SummaryBar extends StatelessWidget {
     final int courses =
         grid.entries.map((GridEntry e) => e.course.code).toSet().length;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
       child: Row(
         children: <Widget>[
           Text(
             '本周 $courses 门课 · 共 ${grid.entries.length} 段',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: const TextStyle(fontSize: 12, color: TguColors.sub),
           ),
           const Spacer(),
           Text(
             '总 ${timetable.totalCredits.toStringAsFixed(1)} 学分',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: const TextStyle(fontSize: 12, color: TguColors.sub),
           ),
         ],
       ),
@@ -262,18 +335,7 @@ class _Grid extends StatelessWidget {
     return '';
   }
 
-  Color _colorFor(String code) {
-    final List<Color> palette = <Color>[
-      const Color(0xFF71246B),
-      const Color(0xFF2A5082),
-      const Color(0xFF1F7A5A),
-      const Color(0xFF8A5A00),
-      const Color(0xFF7A2A2A),
-      const Color(0xFF3F5C8A),
-      const Color(0xFF5B3A8A),
-    ];
-    return palette[code.hashCode.abs() % palette.length];
-  }
+  Color _colorFor(String code) => TguColors.accentFor(code);
 
   @override
   Widget build(BuildContext context) {
