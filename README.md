@@ -144,11 +144,11 @@ dart run bin/resolve.dart   # 全量类型检查（需要 FLUTTER_ROOT）
 ```
 
 - `verify.dart`：URP 密码变换、学习通 AES、CookieJar、HTML 表格提取（含 rowspan）、
-  成绩解析（表格版和 AJAX JSON 版）、课表 JSON、网格布局、接口提取，
-  以及**用 dump 里的真实响应做的回归**，最后还会把 `dump/`+`dump-cx/` 里
-  **全部 158 个真实页面**过一遍所有解析器，确保任何一页都不会把解析器搞崩。**当前 214 项通过 / 0 失败。**
+  成绩解析（表格版和 AJAX JSON 版）、课表 JSON、网格布局、接口提取、
+  待办里的学习通作业，以及**用 dump 里的真实响应做的回归**，最后还会把 `dump/`+`dump-cx/` 里
+  **全部 158 个真实页面**过一遍所有解析器，确保任何一页都不会把解析器搞崩。**当前 221 项通过 / 0 失败。**
 - `syntax.dart`：用 analyzer 的纯语法解析检查 `lib/` 下每个文件。
-  不需要 Flutter SDK，所以连界面代码也能查。**当前 31 个文件全部通过。**
+  不需要 Flutter SDK，所以连界面代码也能查。**当前 35 个文件全部通过。**
 - `resolve.dart`：**真类型检查**。用 analyzer 的 `AnalysisContextCollection` 在
   本进程内做完整解析（把 `package:flutter` 一起解析进来），能抓出方法不存在、
   参数类型不匹配、构造函数缺参数这类语法检查看不见的错。

@@ -66,8 +66,9 @@ git push -u origin main
 
 | 步骤 | 挂了说明什么 |
 |---|---|
+| 补丁脚本自测 | `tools/prepare-android.mjs` 的还原逻辑坏了（模拟 `flutter create` 覆盖文件后能否还原） |
 | 准备 Android 工程 | `flutter create` 出问题，或补丁脚本没找到文件（日志里会打印 `!!`） |
-| 断言集 | 解析器 / 加密 / 时间规则的 214 项断言里有失败，日志会打印哪一条 |
+| 断言集 | 解析器 / 加密 / 时间规则的 221 项断言里有失败，日志会打印哪一条 |
 | 静态检查 | `flutter analyze` 有 error（info 不算） |
 | 单元测试（不阻塞） | 这一步失败**不影响出包**，但日志里会写哪个 test 挂了 → 发我 |
 | 构建 APK | Gradle / 依赖问题，看日志里第一个 `FAILURE:` |

@@ -26,6 +26,11 @@ jobs:
 
       - run: flutter --version
 
+      # 补丁脚本的自测（模拟 flutter create 覆盖文件后能还原），
+      # 放在生成之前跑：脚本本身坏了就早点红，别等到 gradle 报一堆错。
+      - name: 补丁脚本自测
+        run: node tools/prepare-android.mjs --selftest
+
       # 生成 android/ 并补上 INTERNET 权限、明文开关、minSdk 23
       - name: 准备 Android 工程
         run: node tools/prepare-android.mjs

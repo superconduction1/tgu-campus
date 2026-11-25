@@ -16,7 +16,8 @@
 // 幂等：重复跑不会重复插权限、不会把 minSdk 改坏。
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -26,17 +27,63 @@ const CLEARTEXT_ATTR = 'android:usesCleartextTraffic="true"';
 const APP_LABEL = '天工校园';
 const MIN_SDK = 23;
 
+/**
+ * `flutter create .` 本意是「只补缺失的平台目录」，但这几个文件是我们自己写过的，
+ * 一旦被模板覆盖，pubspec 的依赖、lint 排除规则、README 全没了——而且报错会
+ * 出现在几百行 gradle 日志之后，很难联想到是这一步干的。
+ * 所以生成前先备份到内存，生成后比对，变了就写回去。
+ */
+const PROTECTED_FILES = [
+  'pubspec.yaml',
+  'analysis_options.yaml',
+  'README.md',
+  '.gitignore',
+  'lib/main.dart',
+  'test/widget_test.dart',
+];
+
+/** 把可能要保护的文件读进内存（不存在的不记）。 */
+function snapshotFiles(root, names) {
+  const snapshot = new Map();
+  for (const name of names) {
+    const file = path.join(root, name);
+    if (existsSync(file)) snapshot.set(name, readFileSync(file));
+  }
+  return snapshot;
+}
+
+/** 把被 create 改过/删掉的文件写回原内容，返回被动过的文件名。 */
+function restoreClobbered(root, snapshot) {
+  const restored = [];
+  for (const [name, bytes] of snapshot) {
+    const file = path.join(root, name);
+    const same = existsSync(file) && readFileSync(file).equals(bytes);
+    if (same) continue;
+    writeFileSync(file, bytes);
+    restored.push(name);
+  }
+  return restored;
+}
+
 /** 粗暴但够用的参数解析。 */
 function parseArgs(argv) {
-  const out = { root: process.cwd(), patchOnly: false, org: 'edu.tgu', name: 'tgu_campus' };
+  const out = {
+    root: process.cwd(),
+    patchOnly: false,
+    selftest: false,
+    org: 'edu.tgu',
+    name: 'tgu_campus',
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--patch-only') out.patchOnly = true;
+    else if (arg === '--selftest') out.selftest = true;
     else if (arg === '--root') out.root = argv[++i];
     else if (arg === '--org') out.org = argv[++i];
     else if (arg === '--project-name') out.name = argv[++i];
     else if (arg === '--help' || arg === '-h') {
       console.log('用法: node tools/prepare-android.mjs [--patch-only] [--root <dir>] [--org <id>] [--project-name <name>]');
+      console.log('      node tools/prepare-android.mjs --selftest   # 只测「保护文件还原」，不碰项目');
       process.exit(0);
     } else {
       console.error(`不认识的参数: ${arg}`);
@@ -44,6 +91,52 @@ function parseArgs(argv) {
     }
   }
   return out;
+}
+
+/** 自测：用临时目录模拟 flutter create 覆盖/删除受保护文件。 */
+function selftest() {
+  const dir = mkdtempSync(path.join(tmpdir(), 'tgu-prepare-'));
+  let passed = 0;
+  let failed = 0;
+  const check = (name, actual, expected) => {
+    const ok = JSON.stringify(actual) === JSON.stringify(expected);
+    console.log(
+      `  ${ok ? 'PASS' : 'FAIL'}  ${name}` +
+        (ok ? '' : `\n        期望 ${JSON.stringify(expected)}\n        实际 ${JSON.stringify(actual)}`),
+    );
+    if (ok) passed++;
+    else failed++;
+  };
+  const write = (name, text) => writeFileSync(path.join(dir, name), text, 'utf8');
+  const read = (name) => readFileSync(path.join(dir, name), 'utf8');
+
+  try {
+    write('pubspec.yaml', 'name: tgu_campus\ndependencies:\n  flutter_secure_storage: ^9.2.4\n');
+    write('README.md', '# 天工校园\n');
+
+    const snapshot = snapshotFiles(dir, PROTECTED_FILES);
+    check('只备份确实存在的文件', [...snapshot.keys()].sort(), ['README.md', 'pubspec.yaml']);
+
+    // 模拟 flutter create：覆盖 pubspec、删掉 README。
+    write('pubspec.yaml', 'name: tgu_campus\n');
+    rmSync(path.join(dir, 'README.md'));
+
+    const restored = restoreClobbered(dir, snapshot);
+    check('被改与被删的文件都还原', restored.sort(), ['README.md', 'pubspec.yaml']);
+    check(
+      'pubspec 内容一字不差',
+      read('pubspec.yaml'),
+      'name: tgu_campus\ndependencies:\n  flutter_secure_storage: ^9.2.4\n',
+    );
+    check('README 被删也能写回来', read('README.md'), '# 天工校园\n');
+    check('已经一致时不重复写', restoreClobbered(dir, snapshot), []);
+    check('没备份过的文件不会被凭空创建', existsSync(path.join(dir, 'analysis_options.yaml')), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+
+  console.log(`\n自测：${passed} 通过，${failed} 失败\n`);
+  process.exit(failed > 0 ? 1 : 0);
 }
 
 /** 没有 android/ 就调 flutter create 生成。返回是否真的生成过。 */
@@ -147,9 +240,21 @@ function patchGradle(text) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.selftest) selftest();
   const root = path.resolve(args.root);
+  // 只在这个脚本真的要跑 flutter create 时才备份。
+  const snapshot = existsSync(path.join(root, 'android'))
+    ? new Map()
+    : snapshotFiles(root, PROTECTED_FILES);
   const created = ensureScaffold(root, args.org, args.name, args.patchOnly);
   console.log(created ? '脚手架已生成\n' : 'android/ 已存在，跳过生成\n');
+
+  if (created) {
+    const restored = restoreClobbered(root, snapshot);
+    if (restored.length > 0) {
+      console.log(`flutter create 改动了 ${restored.length} 个文件，已还原：${restored.join('、')}\n`);
+    }
+  }
 
   const targets = [
     path.join(root, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
