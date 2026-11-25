@@ -15,6 +15,7 @@ import '../../../lib/core/http.dart';
 import '../../../lib/core/text_decode.dart';
 import '../../../lib/core/urp_crypto.dart';
 import '../../../lib/features/chaoxing/cx_parser.dart';
+import '../../../lib/features/chaoxing/homework_todo.dart';
 import '../../../lib/features/chaoxing/models.dart';
 import '../../../lib/features/chaoxing/seat_rules.dart';
 import '../../../lib/features/urp/models.dart';
@@ -887,6 +888,49 @@ void main() {
   }
   check('巡检：确实扫到了页面', pages.isNotEmpty, true);
   check('巡检：解析器零异常', parseFailures.length, 0);
+
+  stdout.writeln('\n[21] 待办里的学习通作业');
+  const HomeworkItem pendingItem = HomeworkItem(
+    title: '第三章 习题',
+    courseName: '有机化学',
+    status: HomeworkStatus.notSubmitted,
+    url: 'https://mooc1.chaoxing.com/mooc2/work/view?workId=99',
+    deadline: '2026-12-01 23:59',
+    statusText: '未提交',
+  );
+  const HomeworkItem doneItem = HomeworkItem(
+    title: '第一章 习题',
+    courseName: '有机化学',
+    status: HomeworkStatus.submitted,
+    url: 'https://mooc1.chaoxing.com/mooc2/work/view?workId=98',
+    deadline: '2026-11-01 23:59',
+    statusText: '已交',
+  );
+  const HomeworkList mixed = HomeworkList(
+    items: <HomeworkItem>[doneItem, pendingItem],
+  );
+  final List<TodoItem> hwTodos = homeworkTodos(mixed);
+  check('只把未交的作业变成待办', hwTodos.length, 1);
+  check('标题取作业名', hwTodos.first.title, '第三章 习题');
+  check('类型是作业', hwTodos.first.kind, TodoKind.homework);
+  check('详情带课程与截止时间', hwTodos.first.detail, '有机化学 · 截止 2026-12-01 23:59');
+  check('带上原页面地址', hwTodos.first.path.contains('workId=99'), true);
+  check('没有作业时是空列表', homeworkTodos(const HomeworkList()).length, 0);
+  check(
+    '没截止时间的作业详情只有课程名',
+    homeworkTodos(
+      const HomeworkList(
+        items: <HomeworkItem>[
+          HomeworkItem(
+            title: '无截止',
+            courseName: '大学英语',
+            status: HomeworkStatus.notSubmitted,
+          ),
+        ],
+      ),
+    ).first.detail,
+    '大学英语',
+  );
 
   stdout.writeln('\n结果：$_passed 通过，$_failed 失败\n');
   if (_failed > 0) exit(1);
