@@ -1,18 +1,34 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
+import '../../core/app_cache.dart';
+import '../../core/disk_cache.dart';
+import '../../core/snapshot.dart';
 import 'models.dart';
 import 'timetable_grid.dart';
 import 'urp_api.dart';
+import 'urp_parser.dart';
 import 'urp_widgets.dart';
 
 /// 周课表。
 ///
 /// 排版逻辑全在 [TimetableGrid]（纯 Dart，有测试），这里只负责画。
+/// 网络拿不到时会退回上次成功的本地快照，并在顶上标明数据时间。
 class TimetablePage extends StatefulWidget {
-  const TimetablePage({super.key, required this.api, this.initialWeek = 1});
+  const TimetablePage({
+    super.key,
+    required this.api,
+    this.initialWeek = 1,
+    this.cache,
+  });
 
   final UrpApi api;
   final int initialWeek;
+
+  /// 传 null 用 App 的默认缓存目录；测试里可以塞临时目录。
+  final DiskCache? cache;
 
   @override
   State<TimetablePage> createState() => _TimetablePageState();
@@ -20,7 +36,8 @@ class TimetablePage extends StatefulWidget {
 
 class _TimetablePageState extends State<TimetablePage> {
   late int _week = widget.initialWeek;
-  late Future<Timetable> _future = widget.api.fetchTimetable();
+  late final DiskCache _cache = widget.cache ?? appCache();
+  late Future<_Loaded> _future = _load();
 
   /// 教务说的「现在第几周」。拿不到就是 null，界面退化成只能手翻。
   int? _currentWeek;
@@ -56,9 +73,38 @@ class _TimetablePageState extends State<TimetablePage> {
     });
   }
 
+  /// 先走网络；网络不通再退回上次成功存下来的快照。
+  ///
+  /// 两边都没有就把异常抛出去，让页面显示原来的错误页
+  /// （会话过期要能弹「重新登录」，不能被缓存掩掉）。
+  Future<_Loaded> _load() async {
+    try {
+      final Timetable fresh = await widget.api.fetchTimetable();
+      unawaited(_cache.save(
+        CacheKeys.timetable,
+        jsonEncode(fresh.raw),
+      ));
+      return _Loaded(timetable: fresh);
+    } catch (error) {
+      final CachedSnapshot? snapshot = await _cache.load(CacheKeys.timetable);
+      if (snapshot != null) {
+        try {
+          final Timetable stale =
+              UrpParser.parseTimetableJson(jsonDecode(snapshot.value));
+          if (!stale.isEmpty) {
+            return _Loaded(timetable: stale, cachedAt: snapshot.savedAt);
+          }
+        } catch (_) {
+          // 缓存的 JSON 坏了就当没有。
+        }
+      }
+      rethrow;
+    }
+  }
+
   void _reload() {
     setState(() {
-      _future = widget.api.fetchTimetable();
+      _future = _load();
     });
     _loadTerm();
   }
@@ -76,9 +122,9 @@ class _TimetablePageState extends State<TimetablePage> {
           ),
         ],
       ),
-      body: FutureBuilder<Timetable>(
+      body: FutureBuilder<_Loaded>(
         future: _future,
-        builder: (BuildContext context, AsyncSnapshot<Timetable> snapshot) {
+        builder: (BuildContext context, AsyncSnapshot<_Loaded> snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -90,7 +136,8 @@ class _TimetablePageState extends State<TimetablePage> {
             );
           }
 
-          final Timetable timetable = snapshot.data!;
+          final _Loaded loaded = snapshot.data!;
+          final Timetable timetable = loaded.timetable;
           if (timetable.isEmpty) {
             return const Center(child: Text('本学期还没有排课'));
           }
@@ -99,6 +146,8 @@ class _TimetablePageState extends State<TimetablePage> {
 
           return Column(
             children: <Widget>[
+              if (loaded.cachedAt != null)
+                _StaleBanner(savedAt: loaded.cachedAt!, onRetry: _reload),
               _WeekBar(
                 week: _week,
                 currentWeek: _currentWeek,
@@ -111,6 +160,47 @@ class _TimetablePageState extends State<TimetablePage> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// 一次加载的结果：正常是网络数据，[cachedAt] 非空表示用的是本地快照。
+class _Loaded {
+  const _Loaded({required this.timetable, this.cachedAt});
+
+  final Timetable timetable;
+  final DateTime? cachedAt;
+}
+
+/// 「网络没通，这是 xx 的数据」——必须显眼，别让人以为课表变了。
+class _StaleBanner extends StatelessWidget {
+  const _StaleBanner({required this.savedAt, required this.onRetry});
+
+  final DateTime savedAt;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final String label = CachedSnapshot(value: '', savedAt: savedAt).savedAtLabel;
+    return Material(
+      color: scheme.tertiaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        child: Row(
+          children: <Widget>[
+            Icon(Icons.cloud_off, size: 18, color: scheme.onTertiaryContainer),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '教务连不上，显示 $label 的数据',
+                style: TextStyle(color: scheme.onTertiaryContainer),
+              ),
+            ),
+            TextButton(onPressed: onRetry, child: const Text('重试')),
+          ],
+        ),
       ),
     );
   }

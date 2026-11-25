@@ -1,4 +1,4 @@
-// 纯 Dart 校验：不依赖 Flutter，只验证 core 层的算法与数据结构。
+﻿// 纯 Dart 校验：不依赖 Flutter，只验证 core 层的算法与数据结构。
 //
 // 用法（在 tools/verify 目录下）：
 //   dart pub get
@@ -10,8 +10,10 @@ import 'dart:io';
 import 'package:gbk_codec/gbk_codec.dart';
 
 import '../../../lib/core/chaoxing_crypto.dart';
+import '../../../lib/core/disk_cache.dart';
 import '../../../lib/core/html_table.dart';
 import '../../../lib/core/http.dart';
+import '../../../lib/core/snapshot.dart';
 import '../../../lib/core/text_decode.dart';
 import '../../../lib/core/urp_crypto.dart';
 import '../../../lib/features/chaoxing/cx_parser.dart';
@@ -40,7 +42,7 @@ void check(String name, Object? actual, Object? expected) {
   }
 }
 
-void main() {
+Future<void> main() async {
   stdout.writeln('\n[1] URP 密码变换（对照 md5.min.js 语义）');
   check(
     '123456',
@@ -886,8 +888,14 @@ void main() {
   for (final String line in parseFailures.take(5)) {
     stdout.writeln('    ! $line');
   }
-  check('巡检：确实扫到了页面', pages.isNotEmpty, true);
-  check('巡检：解析器零异常', parseFailures.length, 0);
+  // 真实抓包不进仓库（.gitignore 里有 dump/、dump-cx/），
+  // 所以 CI 上这里必然 0 个页面——那不是失败，是没素材。
+  if (pages.isEmpty) {
+    stdout.writeln('  SKIP  没有 dump/ 或 dump-cx/（真实抓包不提交），跳过巡检');
+  } else {
+    check('巡检：确实扫到了页面', pages.isNotEmpty, true);
+    check('巡检：解析器零异常', parseFailures.length, 0);
+  }
 
   stdout.writeln('\n[21] 待办里的学习通作业');
   const HomeworkItem pendingItem = HomeworkItem(
@@ -931,6 +939,65 @@ void main() {
     ).first.detail,
     '大学英语',
   );
+
+  stdout.writeln('\n[22] 离线快照缓存');
+  final DateTime stamp = DateTime(2026, 11, 25, 19, 40);
+  const String messy = '{"换行":"a\\nb","引号":"a\\"b","反斜杠":"a\\\\b","中文":"高等数学C(理三1)"}';
+  final CachedSnapshot source = CachedSnapshot(value: messy, savedAt: stamp);
+  final CachedSnapshot? snapshotBack = decodeSnapshot(encodeSnapshot(source));
+  check('快照往返：内容一字不差', snapshotBack?.value, messy);
+  check(
+    '快照往返：时间戳不丢',
+    snapshotBack?.savedAt.millisecondsSinceEpoch,
+    stamp.millisecondsSinceEpoch,
+  );
+  check('快照时间标签是 月-日 时:分', source.savedAtLabel, '11-25 19:40');
+  check('空串解不出快照', decodeSnapshot(''), null);
+  check('null 解不出快照', decodeSnapshot(null), null);
+  check('乱码解不出快照', decodeSnapshot('not json at all'), null);
+  check('缺 value 字段解不出快照', decodeSnapshot('{"savedAt":1}'), null);
+
+  check('key：合法字符原样保留', sanitizeCacheKey('urp.timetable'), 'urp.timetable');
+  check('key：挡住路径穿越', sanitizeCacheKey('../../etc/passwd'), 'etc_passwd');
+  check('key：空白兜底', sanitizeCacheKey('   '), 'cache');
+  check('key：超长截断到 64', sanitizeCacheKey('a' * 100).length, 64);
+
+  final Directory tempDir = Directory.systemTemp.createTempSync('tgu_cache_');
+  final DiskCache cache = DiskCache(() async => tempDir, now: () => stamp);
+  try {
+    check('缓存：写入成功', await cache.save('urp.timetable', messy), true);
+    final CachedSnapshot? hit = await cache.load('urp.timetable');
+    check('缓存：读回来的内容一致', hit?.value, messy);
+    check(
+      '缓存：读回来的时间一致',
+      hit?.savedAt.millisecondsSinceEpoch,
+      stamp.millisecondsSinceEpoch,
+    );
+    check('缓存：没写过的 key 读不出来', await cache.load('nobody'), null);
+
+    await cache.remove('urp.timetable');
+    check('缓存：删掉后读不出来', await cache.load('urp.timetable'), null);
+
+    await cache.save('broken', 'x');
+    File('${tempDir.path}${Platform.pathSeparator}tgu_cache'
+            '${Platform.pathSeparator}broken.json')
+        .writeAsStringSync('{"savedAt": oops}');
+    check('缓存：文件坏了当作没有', await cache.load('broken'), null);
+
+    await cache.save('left', '1');
+    await cache.clear();
+    final Directory cacheDir =
+        Directory('${tempDir.path}${Platform.pathSeparator}tgu_cache');
+    final int leftovers =
+        cacheDir.existsSync() ? cacheDir.listSync().length : 0;
+    check('缓存：清空后不留文件', leftovers, 0);
+  } finally {
+    try {
+      tempDir.deleteSync(recursive: true);
+    } catch (_) {
+      // 临时目录删不掉不影响结论。
+    }
+  }
 
   stdout.writeln('\n结果：$_passed 通过，$_failed 失败\n');
   if (_failed > 0) exit(1);
