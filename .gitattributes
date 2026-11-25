@@ -1,0 +1,7 @@
+# 统一按 LF 存进仓库，Windows 上检出也不带 CRLF，
+# 免得 CI（Linux）和本机看到的换行不一样。
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary

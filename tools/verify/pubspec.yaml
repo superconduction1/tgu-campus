@@ -1,0 +1,14 @@
+name: verify
+description: 纯 Dart 校验脚手架，用来在没有 Flutter SDK 的机器上编译并验证 core 层
+publish_to: 'none'
+version: 0.0.1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  crypto: ^3.0.6
+  pointycastle: ^3.9.1
+  html: ^0.15.6
+  analyzer: any
+  gbk_codec: ^0.4.0

@@ -1,0 +1,16 @@
+include: package:flutter/analysis_options_user.yaml
+
+analyzer:
+  # tools/ 里是独立的 Dart 包（校准工具 + 验证脚手架），有自己的 pubspec，
+  # 不能按本包的依赖解析；dump/ 里是抓下来的 HTML，一个 Dart 文件都没有。
+  exclude:
+    - tools/**
+    - dump/**
+    - dump-cx/**
+    - android/**
+
+linter:
+  rules:
+    - avoid_print
+    - prefer_single_quotes
+    - unawaited_futures

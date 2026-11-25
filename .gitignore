@@ -1,0 +1,27 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.dill
+
+# 本机下载的工具链与依赖缓存（加起来 4GB+，别提交）
+.tools/
+.home/
+.pub-cache/
+
+# 校准工具抓下来的真实页面：含学号、姓名、课表，只在本机留着
+dump/
+dump-cx/
+
+# Android
+android/.gradle/
+android/local.properties
+android/key.properties
+*.jks
+*.keystore
+
+# 编辑器
+.idea/
+.vscode/
+*.iml

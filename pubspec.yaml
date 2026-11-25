@@ -1,0 +1,26 @@
+name: tgu_campus
+description: 天津工业大学校园聚合助手（单人自用）
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  crypto: ^3.0.6
+  pointycastle: ^3.9.1
+  html: ^0.15.6
+  gbk_codec: ^0.4.0
+  flutter_secure_storage: ^9.2.4
+  path_provider: ^2.1.5
+  webview_flutter: ^4.10.0
+  url_launcher: ^6.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
