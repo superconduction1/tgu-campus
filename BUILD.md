@@ -30,6 +30,25 @@ SmartScreen 弹「Windows 已保护你的电脑」时点「更多信息 → 仍�
 
 产物：`build/app/outputs/flutter-apk/app-debug.apk`。
 
+## 出装到手机的小包（release）
+
+debug 包带调试符号、体积大；给手机装用 release（仍然用 debug 签名，只自用不上架）：
+
+| 脚本 | 用途 | 架构 | 实测体积 |
+|---|---|---|---|
+| `br.cmd` | 默认按手机出包 | arm64 | 约 30MB |
+| `br64.cmd` | 装到 MuMu / 模拟器 | x86_64 | 约 25MB |
+| `br.cmd android-x64` | 手动指定架构 | 任意 | — |
+| `b.cmd` / `bx64.cmd` | 调试用（带 Dart 调试器） | 全 ABI / x64 | 90.4MB |
+
+产物：`build/app/outputs/flutter-apk/app-release.apk`。
+
+> release 构建里 `android/app/build.gradle.kts` 关掉了 `lint { checkReleaseBuilds = false }`：
+> AGP 自带的 lint 在 `webview_flutter_android` 的 Kotlin 代码上会崩
+> （`java.util.List.removeLast()` 是 JDK 21 的 API，本机 JDK 17 跑不了），属于 lint 自身 bug，
+> 静态检查由 CI 的 `flutter analyze` 与本地 `resolve.dart` 兜着。
+
+
 ## 装到 MuMu 模拟器
 
 ```powershell
