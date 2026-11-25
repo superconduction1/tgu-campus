@@ -7,6 +7,14 @@ import '../../core/http.dart';
 import 'cx_parser.dart';
 import 'models.dart';
 
+/// 手动跟过 3xx 之后的结果：最终地址 + 最终响应。
+class _Fetched {
+  const _Fetched({required this.uri, required this.result});
+
+  final Uri uri;
+  final HttpResult result;
+}
+
 /// 学习通登录结果。
 class CxLoginOutcome {
   const CxLoginOutcome._({
@@ -164,20 +172,28 @@ class ChaoxingApi {
     // 课程列表给的是「新版界面」链接（带 ismooc2=1），那页没有隐藏域。
     CourseContext? ctx;
     String lastFingerprint = '一个页面都没取到';
+    Uri lastUri = pageUri;
     for (final Uri candidate in <Uri>[
       normalizeCoursePageUri(pageUri),
       _canonicalCourseUri(course),
     ]) {
-      final HttpResult page = await client.get(candidate);
-      lastFingerprint = pageFingerprint(page.html, statusCode: page.statusCode);
-      ctx = parseCourseContext(page.html);
+      final _Fetched page = await _getFollowing(candidate);
+      lastFingerprint = pageFingerprint(page.result.html,
+              statusCode: page.result.statusCode) +
+          '，最终地址 ${page.uri.path}';
+      lastUri = page.uri;
+      ctx = parseCourseContext(page.result.html);
       if (ctx != null) break;
     }
     if (ctx == null) {
       // 把最后那页长什么样写进错误里，用户复制自检报告就能直接定位。
+      final bool toLogin =
+          lastUri.host.contains('passport2') || lastUri.host.contains('login');
       throw CxDeniedException(
-        '${course.name}：课程页里没有 courseid/clazzid；'
-        '最后取的页面是 $lastFingerprint',
+        toLogin
+            ? '${course.name}：跳到了登录页，学习通登录态过期了，去「设置 → 学习通」重新登录'
+            : '${course.name}：课程页里没有 courseid/clazzid；'
+                '最后取的页面是 $lastFingerprint',
       );
     }
     final HttpResult list =
@@ -192,6 +208,28 @@ class ChaoxingApi {
         'cpi': course.cpi,
         'vc': '1',
       });
+
+  /// 手动跟 3xx。
+  ///
+  /// `SchoolHttpClient` 是 `followRedirects = false` 的（登录要靠 302 的
+  /// Location 判错），所以课程页遇到 302 时必须自己跟一遍——实测
+  /// 「26军事理论」的课程页就是 302 + 0 字节，不跟就拿不到隐藏域。
+  Future<_Fetched> _getFollowing(Uri uri, {int maxHops = 3}) async {
+    Uri current = uri;
+    HttpResult result = await client.get(current);
+    int hops = 0;
+    while (hops < maxHops && _isRedirect(result.statusCode)) {
+      final String? location = result.location;
+      if (location == null || location.isEmpty) break;
+      current = current.resolve(location);
+      result = await client.get(current);
+      hops++;
+    }
+    return _Fetched(uri: current, result: result);
+  }
+
+  static bool _isRedirect(int code) =>
+      code == 301 || code == 302 || code == 303 || code == 307 || code == 308;
 
   /// 全部课程的作业。
   ///
