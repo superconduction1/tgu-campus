@@ -46,7 +46,7 @@ D:\MuMuPlayer\nx_main\adb.exe install -r build\app\outputs\flutter-apk\app-debug
 | `flutter_tool_state` 写入失败 / `failed to list directory at "...\.home "` | `set VAR=value && ...` 把**尾随空格**写进了变量 | 一律用 `set "VAR=value"` |
 | `AccessDeniedException ...\.android\debug.keystore.lock` | 用的是真实用户目录 | `ANDROID_USER_HOME` 指到 `.home\.android` |
 | `CMake '3.22.1' was not found` | `path_provider_android 2.3.x` 走 `package:jni` 原生构建 | `pubspec.yaml` 里 `dependency_overrides: path_provider_android: 2.2.15` |
-| `llvm-strip` 启动失败 / APK 1.4GB | 假 NDK 或没装 NDK，AGP 跳过剥离 | 已装 r28c 真 NDK，**不要再加 `keepDebugSymbols`** |
+| `llvm-strip` 启动失败 / APK 1.4GB | `android/app/build.gradle.kts` 里没写 `ndkVersion`（AGP 会跳过 strip，符号全留）；或 `build/app/outputs/apk` 里有上一次 1.4GB 的旧产物，zipflinger 不会截断 | 1) 保留 `ndkVersion = "28.2.13676358"`；2) 构建前删掉 `build/app/outputs/apk` 与 `build/app/outputs/flutter-apk`。正常体积约 **68MB**（全 ABI）/ 约 40MB（`bx64.cmd` 单 x86_64） |
 | `zip END header not found` | Gradle 发行包被下载器写坏 | 清空 `.home\.gradle\wrapper\dists\gradle-9.5.0-bin\*` 重下 |
 | DSH 沙箱里 `flutter build` 报 `CreateFile failed 5` | 沙箱禁止子进程管道（git/flutter 都要起子进程） | 只能在**用户自己的窗口**里跑（b.cmd） |
 
