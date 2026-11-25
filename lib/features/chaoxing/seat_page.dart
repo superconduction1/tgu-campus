@@ -73,28 +73,28 @@ class _SeatPageState extends State<SeatPage> {
   Future<void> _openWebView(String url) async {
     await _injectCxCookies(url);
     if (!mounted) return;
-    final WebViewController controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (int p) {
-            if (!mounted) return;
-            setState(() => _progress = p);
-          },
-          onPageFinished: (String _) {
-            if (!mounted) return;
-            setState(() {
-              _progress = 100;
-              _loadError = null;
-            });
-          },
-          onWebResourceError: (WebResourceError e) {
-            if (!mounted || !e.isForMainFrame.orTrue) return;
-            setState(() => _loadError = e.description);
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(url));
+    final WebViewController controller = WebViewController();
+    await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+    await controller.setNavigationDelegate(
+      NavigationDelegate(
+        onProgress: (int p) {
+          if (!mounted) return;
+          setState(() => _progress = p);
+        },
+        onPageFinished: (String _) {
+          if (!mounted) return;
+          setState(() {
+            _progress = 100;
+            _loadError = null;
+          });
+        },
+        onWebResourceError: (WebResourceError e) {
+          if (!mounted || !e.isForMainFrame.orTrue) return;
+          setState(() => _loadError = e.description);
+        },
+      ),
+    );
+    await controller.loadRequest(Uri.parse(url));
     setState(() {
       _web = controller;
       _loadError = null;

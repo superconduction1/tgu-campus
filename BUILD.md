@@ -24,7 +24,7 @@
 仓库已经在本地初始化并提交好了（分支 `main`），远程地址也已经填好：
 
 ```
-origin = https://github.com/superconduction1/tgu-campus.git
+origin = git@github.com:superconduction1/tgu-campus.git
 ```
 
 所以只有两件事要做：
@@ -32,20 +32,23 @@ origin = https://github.com/superconduction1/tgu-campus.git
 ```powershell
 cd C:\Users\Q\Documents\deepseek-harness\default-workspace\tgu_campus
 
-git push -u origin main
+git push
 ```
 
-- 第一次 push 会弹浏览器让你登录 GitHub（Git 自带的凭据管理器，授权一次就行）。
-- 如果第 1 步的仓库名不叫 `tgu-campus`，改一下地址：
-  `git remote set-url origin https://github.com/superconduction1/你的仓库名.git`
+- **为什么是 SSH 而不是 https**：这台机器所在的网络把 `github.com:443` 拦掉了（DNS 解析到 `57.155.223.240`，不是 GitHub 的地址；换成真实 IP 也握手后断流），但 `github.com:22`（SSH）是通的。所以仓库改走 SSH。
+- 密钥在 `tgu_campus/.keys/id_tgu`（已加进 `.gitignore`，不会进仓库），公钥已经加到 GitHub 账号里（Settings → SSH and GPG keys，名字 `tgu-campus`）。
+- 换电脑/换密钥时，设置一次即可（**路径用正斜杠**，`ssh` 走的是 sh，反斜杠会被当转义吃掉）：
+  `git config core.sshCommand "ssh -i C:/路径/id_tgu -o IdentitiesOnly=yes"`
+- 想改回 https（在能直连 GitHub 的网络里）：`git remote set-url origin https://github.com/superconduction1/tgu-campus.git`
 
 ### push 失败对照表
 
 | 报错 | 真正的原因 | 怎么办 |
 |---|---|---|
 | `repository '...' not found` | 第 1 步的空仓库还没建出来（或仓库名不一样） | 回第 1 步建仓库，再核对 `git remote -v` 里的地址 |
-| `remote origin already exists` | 之前加过一次 remote | 正常，说明地址已存在；直接 `git push -u origin main` |
-| `Authentication failed` | 登录过期 | 控制面板 → 凭据管理器 → 删掉 `git:https://github.com`，重试 push |
+| `remote origin already exists` | 之前加过一次 remote | 正常，说明地址已存在；直接 `git push` |
+| `Permission denied (publickey)` | 密钥没被 GitHub 认（没加公钥，或 `core.sshCommand` 里的路径不对） | 对照上面两条检查；`ssh -T git@github.com` 应回 `Hi superconduction1!` |
+| `Could not read from remote repository` + `Win32 error 5` | 在受限沙箱里跑 git（没法起 sh） | 在普通 cmd/PowerShell 窗口里跑 |
 | `src refspec main does not match any` | 本地分支名不是 `main` | `git branch -M main` 再来 |
 
 > 想改提交里显示的名字/邮箱（现在是占位的 `tgu-campus`）：

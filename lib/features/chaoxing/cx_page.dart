@@ -35,23 +35,23 @@ class _CxWebViewPageState extends State<CxWebViewPage> {
     final int injected = await injectCxCookies(widget.url);
     if (!mounted) return;
 
-    final WebViewController controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (int value) {
-            if (!mounted) return;
-            setState(() => _progress = value);
-          },
-          onWebResourceError: (WebResourceError error) {
-            if (!mounted) return;
-            // 只有主文档失败才算页面失败，图片/脚本失败不该盖掉内容。
-            if (!error.isForMainFrame.orTrue) return;
-            setState(() => _error = error.description);
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(widget.url));
+    final WebViewController controller = WebViewController();
+    await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+    await controller.setNavigationDelegate(
+      NavigationDelegate(
+        onProgress: (int value) {
+          if (!mounted) return;
+          setState(() => _progress = value);
+        },
+        onWebResourceError: (WebResourceError error) {
+          if (!mounted) return;
+          // 只有主文档失败才算页面失败，图片/脚本失败不该盖掉内容。
+          if (!error.isForMainFrame.orTrue) return;
+          setState(() => _error = error.description);
+        },
+      ),
+    );
+    await controller.loadRequest(Uri.parse(widget.url));
 
     setState(() {
       _controller = controller;
