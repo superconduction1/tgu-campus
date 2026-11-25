@@ -32,6 +32,17 @@ jobs:
 
       - run: flutter pub get
 
+      # Gradle 的依赖第一次要下几分钟，缓存起来第二次就快很多。
+      - name: 缓存 Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
       # 本项目的断言集（纯 Dart，不依赖 Flutter）：解析器、加密、时间规则。
       # CI 里有真 Dart，所以比本机多跑一步静态检查。
       - name: 断言集
@@ -42,6 +53,13 @@ jobs:
 
       - name: 静态检查
         run: flutter analyze --no-fatal-infos
+
+      # 这几个测试文件在本机跑不了（flutter test 要 spawn 测试进程，
+      # 沙箱不允许），所以让 CI 第一次跑时顺便验证它们。
+      # 故意不阻塞出包：测试挂了也要能先装上 APK 看主流程。
+      - name: 单元测试（不阻塞出包）
+        continue-on-error: true
+        run: flutter test --reporter expanded
 
       - name: 构建 APK
         run: flutter build apk --debug
