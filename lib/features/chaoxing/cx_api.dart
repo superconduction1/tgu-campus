@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '../../core/chaoxing_crypto.dart';
@@ -193,31 +194,55 @@ class ChaoxingApi {
   ///
   /// 单门课失败不拖垮整页：失败的记进 `failures`；
   /// 但如果**一门都没成功**，说明是会话或网络问题，直接把第一个异常抛出去。
-  Future<HomeworkList> fetchHomework() async {
+  ///
+  /// 11 门课串行要十来秒，所以这里按 [concurrency] 并发，并且每门课单独限时
+  /// （[perCourseTimeout]）——某门课卡住只算它失败，不会把整页拖死。
+  Future<HomeworkList> fetchHomework({
+    int concurrency = 3,
+    Duration perCourseTimeout = const Duration(seconds: 12),
+  }) async {
     final List<CxCourse> courses = await fetchCourses();
     if (courses.isEmpty) {
       return const HomeworkList();
     }
 
+    final List<CxCourse> usable = courses
+        .where((CxCourse c) => c.isUsable)
+        .toList(growable: false);
     final List<HomeworkList> ok = <HomeworkList>[];
     final List<String> failures = <String>[];
     Object? firstError;
+    int next = 0;
 
-    for (final CxCourse c in courses) {
-      if (!c.isUsable) continue;
-      try {
-        ok.add(await fetchCourseHomework(c));
-      } on CxDeniedException catch (e) {
-        firstError ??= e;
-        failures.add('${c.name}：${e.message}');
-      } catch (e) {
-        firstError ??= e;
-        failures.add('${c.name}：$e');
+    Future<void> worker() async {
+      while (next < usable.length) {
+        final CxCourse c = usable[next++];
+        try {
+          ok.add(await fetchCourseHomework(c).timeout(perCourseTimeout));
+        } on CxDeniedException catch (e) {
+          firstError ??= e;
+          failures.add('${c.name}：${e.message}');
+        } on TimeoutException catch (e) {
+          firstError ??= e;
+          failures.add('${c.name}：超过 ${perCourseTimeout.inSeconds} 秒没响应');
+        } catch (e) {
+          firstError ??= e;
+          failures.add('${c.name}：$e');
+        }
       }
     }
 
-    if (ok.isEmpty && firstError != null) {
-      throw firstError;
+    final int lanes = concurrency < 1
+        ? 1
+        : (concurrency > 5 ? 5 : concurrency);
+    await Future.wait(<Future<void>>[
+      for (int i = 0; i < lanes; i++) worker(),
+    ]);
+
+    // firstError 在闭包里被赋值，没法直接判空后 throw（提不上类型），先落到局部变量。
+    final Object? first = firstError;
+    if (ok.isEmpty && first != null) {
+      throw first;
     }
     final HomeworkList merged = HomeworkList.merge(ok);
     return HomeworkList(
