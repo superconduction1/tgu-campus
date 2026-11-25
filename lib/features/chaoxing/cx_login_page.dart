@@ -7,6 +7,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../core/http.dart';
 import '../../core/session.dart';
 import 'cx_api.dart';
+import 'cx_parser.dart';
 import 'models.dart';
 
 /// 学习通网页登录：让用户在内嵌 WebView 里自己登一次，再把 Cookie 收回来。
@@ -113,6 +114,12 @@ class _CxLoginPageState extends State<CxLoginPage> {
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
+    } on CxDeniedException {
+      // 最常见的失败：用户还没登进去就点了按钮，课程列表被 302 回登录页。
+      if (mounted) {
+        setState(() => _error = '还没登录成功：先在上面的页面里扫码或输验证码，'
+            '看到课程列表之后再点这个按钮');
+      }
     } catch (error) {
       if (mounted) setState(() => _error = '验收失败：$error');
     } finally {
