@@ -60,27 +60,40 @@ class _CxLoginPageState extends State<CxLoginPage> {
   /// 从 WebView 的 Cookie 罐里把学习通各域的 Cookie 收出来。
   ///
   /// 官方页面在 passport2 域下发登录票据，再跳回 i.chaoxing.com；
-  /// 两个域的 Cookie 都要，缺任意一个后续请求都会被判未登录。
-  Future<Map<String, String>> _harvest() async {
+  /// 每个子域自己的 `JSESSIONID` 不一样，**必须按域分开存**，
+  /// 拍平成一个 map 会让后收的域覆盖前面的，详情页就会拿错会话。
+  Future<Map<String, Map<String, String>>> _harvest() async {
     const List<String> hosts = <String>[
       'https://passport2.chaoxing.com',
       'https://i.chaoxing.com',
       'https://mooc1.chaoxing.com',
       'https://mooc2-ans.chaoxing.com',
     ];
-    final Map<String, String> merged = <String, String>{};
+    final Map<String, Map<String, String>> perHost =
+        <String, Map<String, String>>{};
     for (final String host in hosts) {
+      final String bare = Uri.parse(host).host;
       try {
         final List<WebViewCookie> list = await _cookies.getCookies(
           domain: Uri.parse(host),
         );
+        final Map<String, String> bucket = <String, String>{};
         for (final WebViewCookie c in list) {
           if (c.name.isEmpty) continue;
-          merged[c.name] = c.value;
+          bucket[c.name] = c.value;
         }
+        if (bucket.isNotEmpty) perHost[bare] = bucket;
       } catch (_) {
         // 某个域取不到不影响其它域。
       }
+    }
+    return perHost;
+  }
+
+  Map<String, String> _flatten(Map<String, Map<String, String>> perHost) {
+    final Map<String, String> merged = <String, String>{};
+    for (final Map<String, String> bucket in perHost.values) {
+      merged.addAll(bucket);
     }
     return merged;
   }
@@ -91,7 +104,8 @@ class _CxLoginPageState extends State<CxLoginPage> {
       _error = null;
     });
     try {
-      final Map<String, String> harvested = await _harvest();
+      final Map<String, Map<String, String>> perHost = await _harvest();
+      final Map<String, String> harvested = _flatten(perHost);
       if (harvested.isEmpty) {
         setState(() => _error = '没拿到学习通 Cookie，先在页面里登录完再点这里');
         return;
@@ -112,6 +126,8 @@ class _CxLoginPageState extends State<CxLoginPage> {
         password: old?.password ?? '',
         jar: client.jar,
       );
+      // 按域存一份，详情页/座位页要用对应子域的会话。
+      await CxSessionStore().saveCookieHosts(perHost);
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } on CxDeniedException {

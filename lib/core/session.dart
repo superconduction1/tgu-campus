@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'http.dart';
@@ -99,11 +101,18 @@ class StoredCxCredentials {
     required this.phone,
     this.password,
     this.cookies,
+    this.cookieHosts = const <String, Map<String, String>>{},
   });
 
   final String phone;
   final String? password;
   final String? cookies;
+
+  /// 按域分开存的 Cookie：`{'mooc1.chaoxing.com': {'JSESSIONID': '...'}}`。
+  ///
+  /// 学习通每个子域自己的 `JSESSIONID` 不一样，拍平成一个 map 会互相覆盖，
+  /// 详情页就会拿错会话（表现为「浏览器已禁用cookie功能」）。
+  final Map<String, Map<String, String>> cookieHosts;
 }
 
 /// 学习通（超星）的会话存储。
@@ -119,6 +128,7 @@ class CxSessionStore {
   static const String _kPhone = 'cx.phone';
   static const String _kPassword = 'cx.password';
   static const String _kCookies = 'cx.cookies';
+  static const String _kCookieHosts = 'cx.cookieHosts';
 
   final FlutterSecureStorage _storage;
 
@@ -135,9 +145,40 @@ class CxSessionStore {
   Future<void> saveCookies(CookieJar jar) =>
       _storage.write(key: _kCookies, value: jar.export());
 
+  /// 保存按域分开的 Cookie（网页扫码登录那条路用）。
+  Future<void> saveCookieHosts(Map<String, Map<String, String>> hosts) async {
+    if (hosts.isEmpty) return;
+    await _storage.write(key: _kCookieHosts, value: jsonEncode(hosts));
+  }
+
+  Future<Map<String, Map<String, String>>> _loadCookieHosts() async {
+    final String? raw = await readOrClear(_storage, _kCookieHosts);
+    if (raw == null || raw.isEmpty) return const <String, Map<String, String>>{};
+    try {
+      final Object? decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return const <String, Map<String, String>>{};
+      }
+      final Map<String, Map<String, String>> out =
+          <String, Map<String, String>>{};
+      decoded.forEach((String host, dynamic value) {
+        if (value is Map<String, dynamic>) {
+          out[host] = value.map(
+            (String k, dynamic v) => MapEntry<String, String>(k, v.toString()),
+          );
+        }
+      });
+      return out;
+    } on FormatException {
+      return const <String, Map<String, String>>{};
+    }
+  }
+
   Future<StoredCxCredentials?> load() async {
     final String? phone = await readOrClear(_storage, _kPhone);
     final String? cookies = await readOrClear(_storage, _kCookies);
+    final Map<String, Map<String, String>> cookieHosts =
+        await _loadCookieHosts();
     // 网页登录只拿得到 Cookie、没有账号密码，这种情况也算已登录。
     final bool hasPhone = phone != null && phone.isNotEmpty;
     final bool hasCookies = cookies != null && cookies.isNotEmpty;
@@ -146,6 +187,7 @@ class CxSessionStore {
       phone: phone ?? '',
       password: await readOrClear(_storage, _kPassword),
       cookies: cookies,
+      cookieHosts: cookieHosts,
     );
   }
 
@@ -153,5 +195,6 @@ class CxSessionStore {
     await deleteQuietly(_storage, _kPhone);
     await deleteQuietly(_storage, _kPassword);
     await deleteQuietly(_storage, _kCookies);
+    await deleteQuietly(_storage, _kCookieHosts);
   }
 }

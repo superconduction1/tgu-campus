@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../core/http.dart';
+import '../../core/session.dart';
 import 'cx_webview.dart';
 
 /// 用内置 WebView 打开一个学习通页面，并先把登录 Cookie 铺进去。
@@ -23,6 +25,7 @@ class _CxWebViewPageState extends State<CxWebViewPage> {
   int _progress = 0;
   int _injected = 0;
   String? _error;
+  bool _fallbackUsed = false;
 
   @override
   void initState() {
@@ -37,7 +40,7 @@ class _CxWebViewPageState extends State<CxWebViewPage> {
 
     // 首文档再单独带一份 Cookie 头：学习通看首个请求有没有会话，
     // 只看 CookieManager 有时会回「浏览器已禁用cookie功能」。
-    final String cookieHeader = await cxCookieHeader();
+    final String cookieHeader = await cxCookieHeader(widget.url);
     if (!mounted) return;
 
     final WebViewController controller = WebViewController();
@@ -54,6 +57,7 @@ class _CxWebViewPageState extends State<CxWebViewPage> {
           if (!error.isForMainFrame.orTrue) return;
           setState(() => _error = error.description);
         },
+        onPageFinished: (String url) => _checkCookieWall(controller, url),
       ),
     );
     await controller.loadRequest(
@@ -67,6 +71,45 @@ class _CxWebViewPageState extends State<CxWebViewPage> {
       _controller = controller;
       _injected = injected;
     });
+  }
+
+  /// 学习通会把「没带会话」伪装成一个正常的 200 页面：
+  /// 正文只有一句「请查看您的浏览器是否已经禁用cookie功能」。
+  ///
+  /// 碰到这个页面就换一条路：用 Dart 这边的客户端（它的会话是好的，
+  /// 作业列表就是它拉的）把同一个地址取回来，把 HTML 直接塞给 WebView。
+  /// 页面里的相对链接靠 [WebViewController.loadHtmlString] 的 baseUrl 兜住。
+  Future<void> _checkCookieWall(WebViewController controller, String url) async {
+    if (!mounted || _fallbackUsed) return;
+    try {
+      final Object? text =
+          await controller.runJavaScriptReturningResult('document.body.innerText');
+      final String body = text.toString();
+      if (!body.contains('禁用cookie') && !body.contains('禁用 cookie')) return;
+
+      _fallbackUsed = true;
+      final Uri? uri = Uri.tryParse(url);
+      if (uri == null) return;
+
+      final StoredCxCredentials? saved = await CxSessionStore().load();
+      final String? cookies = saved?.cookies;
+      final SchoolHttpClient client = SchoolHttpClient();
+      if (cookies != null && cookies.isNotEmpty) client.jar.restore(cookies);
+
+      final String? origin = uri.hasScheme
+          ? '${uri.scheme}://${uri.host}'
+          : null;
+      final HttpResult result = await client.get(
+        uri,
+        headers: origin == null
+            ? null
+            : <String, String>{'Referer': '$origin/'},
+      );
+      if (!mounted) return;
+      await controller.loadHtmlString(result.html, baseUrl: url);
+    } catch (_) {
+      // 兜底失败就维持原样，用户还能点右上角用浏览器打开。
+    }
   }
 
   Future<void> _openInBrowser() async {
