@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'core/http.dart';
 import 'core/session.dart';
-import 'features/home/home_page.dart';
+import 'features/shell/home_shell.dart';
 import 'features/login/login_page.dart';
 import 'features/urp/urp_api.dart';
 
@@ -68,7 +68,7 @@ class _BootGateState extends State<BootGate> {
         if (landing != null && mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute<void>(
-              builder: (_) => HomePage(api: _api, store: _store),
+              builder: (_) => HomeShell(api: _api, store: _store),
             ),
           );
           return;

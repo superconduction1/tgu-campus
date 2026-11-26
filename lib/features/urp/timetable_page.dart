@@ -23,10 +23,14 @@ class TimetablePage extends StatefulWidget {
     required this.api,
     this.initialWeek = 1,
     this.cache,
+    this.embedded = false,
   });
 
   final UrpApi api;
   final int initialWeek;
+
+  /// 嵌到底部 tab 里时不要自己的 AppBar。
+  final bool embedded;
 
   /// 传 null 用 App 的默认缓存目录；测试里可以塞临时目录。
   final DiskCache? cache;
@@ -119,20 +123,22 @@ class _TimetablePageState extends State<TimetablePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: TguColors.page,
-      appBar: AppBar(
-        title: const Text('课表'),
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        actions: <Widget>[
-          IconButton(
-            tooltip: '刷新',
-            onPressed: _reload,
-            icon: const Icon(Icons.refresh),
-            color: TguColors.sub,
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text('课表'),
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              actions: <Widget>[
+                IconButton(
+                  tooltip: '刷新',
+                  onPressed: _reload,
+                  icon: const Icon(Icons.refresh),
+                  color: TguColors.sub,
+                ),
+                const SizedBox(width: 4),
+              ],
+            ),
       body: FutureBuilder<_Loaded>(
         future: _future,
         builder: (BuildContext context, AsyncSnapshot<_Loaded> snapshot) {

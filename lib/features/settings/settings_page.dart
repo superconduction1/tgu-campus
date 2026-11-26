@@ -13,10 +13,18 @@ import '../urp/urp_api.dart';
 /// 到底把数据放哪儿了。所有存储都是本机的（`flutter_secure_storage`），
 /// 没有任何服务端。
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key, required this.api, required this.store});
+  const SettingsPage({
+    super.key,
+    required this.api,
+    required this.store,
+    this.embedded = false,
+  });
 
   final UrpApi api;
   final SessionStore store;
+
+  /// 嵌到底部 tab 里时不要自己的 AppBar。
+  final bool embedded;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -126,12 +134,14 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: TguColors.page,
-      appBar: AppBar(
-        title: const Text('我'),
-        backgroundColor: TguColors.page,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text('我'),
+              backgroundColor: TguColors.page,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(

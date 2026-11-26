@@ -35,6 +35,11 @@ class _CxWebViewPageState extends State<CxWebViewPage> {
     final int injected = await injectCxCookies(widget.url);
     if (!mounted) return;
 
+    // 首文档再单独带一份 Cookie 头：学习通看首个请求有没有会话，
+    // 只看 CookieManager 有时会回「浏览器已禁用cookie功能」。
+    final String cookieHeader = await cxCookieHeader();
+    if (!mounted) return;
+
     final WebViewController controller = WebViewController();
     await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
     await controller.setNavigationDelegate(
@@ -51,7 +56,12 @@ class _CxWebViewPageState extends State<CxWebViewPage> {
         },
       ),
     );
-    await controller.loadRequest(Uri.parse(widget.url));
+    await controller.loadRequest(
+      Uri.parse(widget.url),
+      headers: cookieHeader.isEmpty
+          ? const <String, String>{}
+          : <String, String>{'Cookie': cookieHeader},
+    );
 
     setState(() {
       _controller = controller;

@@ -16,9 +16,12 @@ import 'urp_widgets.dart';
 /// 教务那两处是学分确认和学业预警；学习通那边还没交的作业也放进来，
 /// 这样不用为了看一眼有没有作业在「待办」和「作业」之间来回切。
 class TodoPage extends StatefulWidget {
-  const TodoPage({super.key, required this.api});
+  const TodoPage({super.key, required this.api, this.embedded = false});
 
   final UrpApi api;
+
+  /// 嵌到底部 tab 里时不要自己的 AppBar。
+  final bool embedded;
 
   @override
   State<TodoPage> createState() => _TodoPageState();
@@ -73,20 +76,22 @@ class _TodoPageState extends State<TodoPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: TguColors.page,
-      appBar: AppBar(
-        title: const Text('待办'),
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        actions: <Widget>[
-          IconButton(
-            tooltip: '刷新',
-            onPressed: _reload,
-            icon: const Icon(Icons.refresh),
-            color: TguColors.sub,
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text('待办'),
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              actions: <Widget>[
+                IconButton(
+                  tooltip: '刷新',
+                  onPressed: _reload,
+                  icon: const Icon(Icons.refresh),
+                  color: TguColors.sub,
+                ),
+                const SizedBox(width: 4),
+              ],
+            ),
       body: FutureBuilder<List<TodoItem>>(
         future: _future,
         builder: (
