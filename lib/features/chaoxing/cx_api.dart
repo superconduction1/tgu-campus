@@ -201,6 +201,33 @@ class ChaoxingApi {
     return parseWorkList(list.html, courseName: course.name);
   }
 
+  /// 把单门课的作业列表**原始 HTML** 取回来（调试用，不解析）。
+  ///
+  /// 状态徽章的 class 名各家学期都不一样，靠猜没用；把真实页面落盘，
+  /// 对着 DOM 改解析器才是正路。
+  Future<String?> rawWorkListHtml(CxCourse course) async {
+    try {
+      final Uri pageUri = course.pageUrl.isNotEmpty
+          ? Uri.parse(course.pageUrl)
+          : _canonicalCourseUri(course);
+      CourseContext? ctx;
+      for (final Uri candidate in <Uri>[
+        normalizeCoursePageUri(pageUri),
+        _canonicalCourseUri(course),
+      ]) {
+        final _Fetched page = await _getFollowing(candidate);
+        ctx = parseCourseContext(page.result.html);
+        if (ctx != null) break;
+      }
+      if (ctx == null) return null;
+      final HttpResult list =
+          await client.get(buildWorkListUrl(ctx, ChaoxingConfig.workList));
+      return list.html;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Uri _canonicalCourseUri(CxCourse course) =>
       Uri.https('mooc1.chaoxing.com', '/mooc-ans/visit/stucoursemiddle', <String, String>{
         'courseid': course.courseId,

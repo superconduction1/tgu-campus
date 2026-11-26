@@ -4,6 +4,7 @@ import '../../core/design.dart';
 import '../../core/session.dart';
 import '../chaoxing/seat_store.dart';
 import '../diagnostics/checkup_page.dart';
+import '../diagnostics/diagnostics.dart';
 import '../login/login_page.dart';
 import '../urp/urp_api.dart';
 
@@ -109,6 +110,18 @@ class _SettingsPageState extends State<SettingsPage> {
     await _load();
   }
 
+  /// 把作业列表原始 HTML 落到 App 私有目录，用来对着真实 DOM 校准解析器。
+  Future<void> _exportCxWorkList() async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('正在导出作业页…')));
+    try {
+      final String path = await Diagnostics(widget.api).exportCxWorkListDump();
+      messenger.showSnackBar(SnackBar(content: Text('已存到 $path')));
+    } catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text('导出失败：$error')));
+    }
+  }
+
   Future<bool> _confirm(String title, String body) async {
     final bool? result = await showDialog<bool>(
       context: context,
@@ -203,6 +216,21 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     trailing: const Icon(
                       Icons.chevron_right,
+                      size: 18,
+                      color: TguColors.sub,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                AppCard(
+                  padding: EdgeInsets.zero,
+                  child: AccentTile(
+                    accent: TguColors.accents[1],
+                    title: '导出学习通作业页',
+                    meta: '把作业列表原始 HTML 存成文件，用来校准状态解析',
+                    onTap: _exportCxWorkList,
+                    trailing: const Icon(
+                      Icons.file_download_outlined,
                       size: 18,
                       color: TguColors.sub,
                     ),

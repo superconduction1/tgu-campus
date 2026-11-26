@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../core/design.dart';
 import '../../core/http.dart';
@@ -33,6 +33,14 @@ class _TodoPageState extends State<TodoPage> {
   /// 学习通那边没取到作业（没登录 / 登录过期 / 网络不通）——只是少一份来源，
   /// 不该让整页报错，但要在底部说明一句，免得用户以为真没作业。
   bool _homeworkUnavailable = false;
+
+  /// 自己持有滚动控制器：内嵌到 HomeShell 的 IndexedStack 里时，
+  /// 外层的 PrimaryScrollController 已被课表页占用，共用会让本页视口不绘制。
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 
   Future<List<TodoItem>> _load() async {
     final List<TodoItem> urp = await widget.api.fetchTodos();
@@ -92,14 +100,20 @@ class _TodoPageState extends State<TodoPage> {
                 const SizedBox(width: 4),
               ],
             ),
-      body: FutureBuilder<List<TodoItem>>(
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: <Widget>[
+          FutureBuilder<List<TodoItem>>(
         future: _future,
         builder: (
           BuildContext context,
           AsyncSnapshot<List<TodoItem>> snapshot,
         ) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 80),
+              child: Center(child: CircularProgressIndicator()),
+            );
           }
           if (snapshot.hasError) {
             return UrpErrorView(
@@ -123,9 +137,12 @@ class _TodoPageState extends State<TodoPage> {
 
           final int pending =
               todos.where((TodoItem t) => t.kind == TodoKind.homework).length;
-          return ListView(
+          return Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-            children: <Widget>[
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
               if (pending > 0)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 14),
@@ -139,21 +156,14 @@ class _TodoPageState extends State<TodoPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              AppCard(
-                padding: EdgeInsets.zero,
-                child: Column(
-                  children: <Widget>[
-                    for (int i = 0; i < todos.length; i++)
-                      _TodoRow(
-                        todo: todos[i],
-                        showDivider: i != todos.length - 1,
-                        onTap: todos[i].path.isEmpty
-                            ? null
-                            : () => _open(todos[i]),
-                      ),
-                  ],
+              for (final TodoItem todo in todos)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _TodoTile(
+                    todo: todo,
+                    onTap: todo.path.isEmpty ? null : () => _open(todo),
+                  ),
                 ),
-              ),
               const SizedBox(height: 16),
               Text(
                 _homeworkUnavailable
@@ -163,8 +173,11 @@ class _TodoPageState extends State<TodoPage> {
                 textAlign: TextAlign.center,
               ),
             ],
+            ),
           );
         },
+          ),
+        ],
       ),
     );
   }
@@ -208,15 +221,11 @@ class _PendingBanner extends StatelessWidget {
   }
 }
 
-class _TodoRow extends StatelessWidget {
-  const _TodoRow({
-    required this.todo,
-    required this.showDivider,
-    this.onTap,
-  });
+
+class _TodoTile extends StatelessWidget {
+  const _TodoTile({required this.todo, this.onTap});
 
   final TodoItem todo;
-  final bool showDivider;
   final VoidCallback? onTap;
 
   static IconData _iconFor(TodoKind kind) {
@@ -261,49 +270,62 @@ class _TodoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color color = _colorFor(todo.kind);
-    return Column(
-      children: <Widget>[
-        InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
-            child: Row(
-              children: <Widget>[
-                AccentTile(
-                  accent: color,
-                  title: todo.title,
-                  meta: todo.detail,
-                  padding: EdgeInsets.zero,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      SoftBadge(_labelFor(todo.kind), color: color),
-                      if (onTap != null) ...<Widget>[
-                        const SizedBox(width: 2),
-                        const Icon(
-                          Icons.chevron_right,
-                          size: 18,
-                          color: TguColors.sub,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 2),
-                Icon(_iconFor(todo.kind), size: 16, color: color),
-              ],
+    return AppCard(
+      padding: EdgeInsets.zero,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 3,
+              height: 34,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Icon(_iconFor(todo.kind), size: 18, color: color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    todo.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: TguColors.ink,
+                      height: 1.25,
+                    ),
+                  ),
+                  if (todo.detail.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 4),
+                    Text(
+                      todo.detail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: TguColors.sub,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            SoftBadge(_labelFor(todo.kind), color: color),
+            if (onTap != null)
+              const Icon(Icons.chevron_right, size: 18, color: TguColors.sub),
+          ],
         ),
-        if (showDivider)
-          const Divider(
-            height: 1,
-            thickness: 1,
-            indent: 14,
-            endIndent: 14,
-            color: TguColors.line,
-          ),
-      ],
+      ),
     );
   }
 }

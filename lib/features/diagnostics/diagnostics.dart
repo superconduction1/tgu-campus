@@ -4,6 +4,9 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/config.dart';
 import '../../core/http.dart';
+import '../../core/session.dart';
+import '../chaoxing/cx_api.dart';
+import '../chaoxing/models.dart';
 import '../urp/urp_api.dart';
 
 /// 诊断转储：把登录后能拿到的原始 HTML 全部落盘。
@@ -61,6 +64,53 @@ class Diagnostics {
     }
 
     await file.writeAsString(buffer.toString());
+    return file.path;
+  }
+
+  /// 把第一门课的作业列表原始 HTML 落盘。
+  ///
+  /// 学习通的状态徽章 class 名改过好几版，靠猜关键词永远对不齐；
+  /// 直接把服务端返回的那页存下来，对着 DOM 写解析器。
+  Future<String> exportCxWorkListDump() async {
+    final Directory dir = await getApplicationDocumentsDirectory();
+    final DateTime now = DateTime.now();
+    final String stamp = '${now.year}${now.month.toString().padLeft(2, '0')}'
+        '${now.day.toString().padLeft(2, '0')}_'
+        '${now.hour.toString().padLeft(2, '0')}'
+        '${now.minute.toString().padLeft(2, '0')}'
+        '${now.second.toString().padLeft(2, '0')}';
+    final File file = File('${dir.path}/cx_worklist_$stamp.html');
+
+    final StoredCxCredentials? saved = await CxSessionStore().load();
+    final String? cookies = saved?.cookies;
+    if (cookies == null || cookies.isEmpty) {
+      await file.writeAsString('<!-- 没有学习通登录态 -->');
+      return file.path;
+    }
+
+    final SchoolHttpClient client = SchoolHttpClient();
+    client.jar.restore(cookies);
+    final ChaoxingApi cx = ChaoxingApi(client);
+    final List<CxCourse> courses = await cx.fetchCourses();
+
+    final StringBuffer out = StringBuffer()
+      ..writeln('<!-- 学习通作业列表原始页面 -->')
+      ..writeln('<!-- 时间：${now.toIso8601String()} -->')
+      ..writeln('<!-- 课程数：${courses.length} -->');
+
+    for (final CxCourse course in courses.take(3)) {
+      out
+        ..writeln('<!-- ===== ${course.name} '
+            'courseId=${course.courseId} clazzId=${course.clazzId} ===== -->');
+      final String? html = await cx.rawWorkListHtml(course);
+      if (html == null) {
+        out.writeln('<!-- 这门课没取到 -->');
+        continue;
+      }
+      out.writeln(html);
+    }
+
+    await file.writeAsString(out.toString());
     return file.path;
   }
 }

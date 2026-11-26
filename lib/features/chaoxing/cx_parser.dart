@@ -215,7 +215,12 @@ HomeworkList parseWorkList(String html, {String courseName = ''}) {
   // 空态快路径。学习通没有作业时服务端直接渲染
   // `<div class="null-data" style="...">暂无作业</div>`，整页连一个 <li> 都没有，
   // 不分块的话会把导航栏的链接当成作业条目。
-  if (_isNullDataPage(html)) return HomeworkList(courseName: courseName);
+  //
+  // 注意：有作业的页面里这个模板容器也可能留在 DOM 里（JS 用 display 藏），
+  // 所以还要确认整页真的没有任何 `/work/task` 链接才敢判空。
+  if (_isNullDataPage(html) && !html.contains('/work/task')) {
+    return HomeworkList(courseName: courseName);
+  }
 
   final List<String> blocks = _splitBlocks(html);
   final List<HomeworkItem> items = <HomeworkItem>[];
@@ -292,8 +297,22 @@ String _taskListScope(String html) {
 
 bool _hasWorkLink(String block) => _pickWorkUrl(block).isNotEmpty;
 
-/// 取条目链接：优先带 `work`/`homework` 的锚点，其次块内第一个锚点。
+/// 取条目链接。
+///
+/// 现在的列表页是 `<li onclick="goTask(this)" data="https://mooc1.../work/task?...">`，
+/// 链接在 `data` 上而不是 `<a href>`；`<a>` 那个「智能分析」跳到 stat2-ans，
+/// 不是作业本体。所以先认 `data`，再退回锚点。
 String _pickWorkUrl(String block) {
+  final RegExpMatch? data = RegExp(
+    r'''\bdata=["'](https?://[^"']+)["']''',
+    caseSensitive: false,
+  ).firstMatch(block);
+  if (data != null) {
+    final String href = data.group(1)!;
+    final String lower = href.toLowerCase();
+    if (lower.contains('/work/') || lower.contains('work?')) return href;
+  }
+
   final Iterable<RegExpMatch> anchors = RegExp(
     r'''<a\b[^>]*href=["']([^"']+)["']''',
     caseSensitive: false,
@@ -333,8 +352,20 @@ String _pickWorkTitle(String block) {
   return '';
 }
 
-/// 状态角标 `.statusbg` 的文字（学习通把「未提交/已提交」放这里）。
+/// 状态角标。
+///
+/// 实测两种写法：老模板是 `.statusbg` 角标，现在这版是
+/// `<p class="status fl">已完成</p>`。两个都认。
 String _pickStatusBadge(String block) {
+  final RegExpMatch? status = RegExp(
+    r'''<p\b[^>]*class=["'][^"']*\bstatus\b[^"']*["'][^>]*>([\s\S]{0,40}?)</''',
+    caseSensitive: false,
+  ).firstMatch(block);
+  if (status != null) {
+    final String text = _stripTags(status.group(1)!).trim();
+    if (text.isNotEmpty) return text;
+  }
+
   final RegExpMatch? badge = RegExp(
     r'''class=["'][^"']*statusbg[^"']*["'][^>]*>([\s\S]{0,40}?)</''',
     caseSensitive: false,
@@ -352,13 +383,16 @@ String _pickStatusText(String badge, String text) {
     '未提交',
     '待提交',
     '未交',
+    '未完成',
     '待批阅',
     '批阅中',
     '已提交',
     '已交',
+    '已完成',
     '已批阅',
     '已评分',
     '已过期',
+    '已逾期',
   ];
   for (final String w in words) {
     if (badge.contains(w)) return w;

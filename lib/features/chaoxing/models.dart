@@ -112,13 +112,16 @@ extension HomeworkStatusLabel on HomeworkStatus {
 HomeworkStatus parseHomeworkStatus(String text) {
   final String t = text.trim();
   if (t.isEmpty) return HomeworkStatus.unknown;
-  if (t.contains('未交') || t.contains('待提交') || t.contains('未提交')) {
+  if (t.contains('未交') ||
+      t.contains('待提交') ||
+      t.contains('未提交') ||
+      t.contains('未完成')) {
     return HomeworkStatus.notSubmitted;
   }
   if (t.contains('待批阅') || t.contains('待评分') || t.contains('批阅中')) {
     return HomeworkStatus.grading;
   }
-  if (t.contains('已交') || t.contains('已提交')) {
+  if (t.contains('已交') || t.contains('已提交') || t.contains('已完成')) {
     return HomeworkStatus.submitted;
   }
   if (t.contains('已批阅') || t.contains('已评分') || t.contains('已通过')) {
